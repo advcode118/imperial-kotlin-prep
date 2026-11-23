@@ -1,0 +1,151 @@
+title: if and when as expressions
+summary: "Conditional logic that produces a value: if/else, and when with its arrows and its else branch."
+blocks:
+  - prose: |
+      In Kotlin `if` is an expression: it has a value, so it can sit on the right of `=`, inside a template, or
+      as a function's entire body. When it is used as an expression it must have an `else`, because the
+      expression needs a value on both paths.
+  - example:
+      title: if as an expression
+      code: |
+        fun classify(mark: Int): String =
+            if (mark >= 70) "first"
+            else if (mark >= 60) "upper second"
+            else if (mark >= 40) "pass"
+            else "fail"
+
+        fun main() {
+            val mark = 64
+            val status = if (mark >= 40) "pass" else "fail"
+            println(status)
+            println(classify(mark))
+            println("Rounded up: ${if (mark % 10 >= 5) mark / 10 + 1 else mark / 10}")
+        }
+  - prose: |
+      ## when
+
+      A chain of `else if` is better written with `when`. Each branch is `condition -> result`.
+
+      `when` has two forms. With a **subject** in parentheses, each branch is a value (or several, separated by
+      commas) compared to the subject. With **no subject**, each branch is a Boolean condition, and the first
+      true one wins.
+
+      When `when` is used as an expression it must be exhaustive. In practice that means you finish with an
+      `else ->` branch. The `else` is where a fallback goes, such as "no route matched".
+  - example:
+      title: when, with and without a subject
+      code: |
+        // Subject form: compare one value against constants.
+        fun daysIn(month: String): Int = when (month) {
+            "feb" -> 28
+            "apr", "jun", "sep", "nov" -> 30
+            else -> 31
+        }
+
+        // No subject: each branch is a condition, like guards.
+        fun classify(mark: Int): String = when {
+            mark >= 70 -> "first"
+            mark >= 60 -> "upper second"
+            mark >= 40 -> "pass"
+            else -> "fail"
+        }
+
+        fun main() {
+            println(daysIn("nov"))
+            println(daysIn("dec"))
+            println(classify(64))
+        }
+  - haskell: |
+      `when` with no subject is a set of guards, and `else` is `otherwise`. `when` with a subject is a `case`
+      expression over constants, and `else` is the wildcard `_`.
+
+      ```haskell
+      classify :: Int -> String
+      classify mark
+        | mark >= 70 = "first"
+        | mark >= 60 = "upper second"
+        | mark >= 40 = "pass"
+        | otherwise  = "fail"
+
+      daysIn :: String -> Int
+      daysIn month = case month of
+        "feb" -> 28
+        "apr" -> 30
+        _     -> 31
+      ```
+
+      One difference: Haskell lets a `case` fall off the end and fail at run time. Kotlin refuses to compile a
+      `when` expression that is not exhaustive.
+  - prose: |
+      A branch can also be a block in braces; the value of the block is its last expression. And a `when` branch
+      can call a function, which is all a simple router is: look at a string, pick the function to call.
+  - example:
+      title: Branches that call functions
+      code: |
+        fun area(shape: String, size: Double): Double = when (shape) {
+            "square" -> size * size
+            "circle" -> {
+                val r = size / 2
+                3.14159 * r * r
+            }
+            else -> 0.0
+        }
+
+        fun main() {
+            println(area("square", 3.0))
+            println(area("circle", 2.0))
+            println(area("hexagon", 2.0))
+        }
+  - check:
+      id: if-when-c1
+      type: predict
+      title: First match wins
+      prompt: Branches are tried from top to bottom.
+      code: |
+        fun size(n: Int): String = when {
+            n > 10 -> "big"
+            n > 100 -> "huge"
+            n > 0 -> "small"
+            else -> "none"
+        }
+
+        fun main() {
+            println(size(500))
+            println(size(7))
+            println(size(-1))
+        }
+      expected: |
+        big
+        small
+        none
+      explanation: "500 is greater than 10, so the first branch is taken and the `huge` branch can never be reached. Order the conditions from most specific to least."
+  - check:
+      id: if-when-c2
+      type: fill
+      title: The necessary else
+      prompt: "Complete the fallback branch so the function compiles and returns `\"unknown\"` for any other code."
+      code: |
+        fun meaning(code: Int): String = when (code) {
+            200 -> "ok"
+            404 -> "not found"
+            ____ -> "unknown"
+        }
+
+        fun main() {
+            println(meaning(500))
+        }
+      accepted: ["else"]
+      expectedOutput: "unknown"
+      explanation: "A `when` used as an expression must cover every case; `else` covers whatever the other branches do not."
+  - check:
+      id: if-when-c3
+      type: mc
+      title: if without else
+      prompt: "Why does `val label = if (n > 0) \"positive\"` fail to compile?"
+      options:
+        - "`if` is a statement in Kotlin and has no value."
+        - "The condition must be in braces."
+        - "Used as an expression, `if` must have an `else` so that it has a value either way."
+        - "`label` needs an explicit type."
+      answer: 2
+      explanation: "If `n` were not positive there would be no value to bind to `label`."

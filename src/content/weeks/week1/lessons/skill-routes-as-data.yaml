@@ -1,0 +1,138 @@
+title: Turning a router into data
+summary: "Separating the table of routes from the code that searches it, and returning the router as a function."
+blocks:
+  - prose: |
+      The hard-coded router mixes two things: *which* command goes to which handler, and *how* a handler is
+      chosen. The first extension in the exercise asks you to separate them. The table becomes a value, and one
+      general function turns any table into a router.
+
+      ## Step 1: name the handler type
+
+      Every handler has the same type, so give it a name.
+
+      ```kotlin
+      typealias Responder = (Message) -> Reply
+      ```
+
+      ## Step 2: the table
+
+      A route is a pair of a key and a handler, and the table is a list of them. Existing handler functions go
+      in by reference with `::`; one-off handlers can be written as lambdas on the spot.
+  - example:
+      title: A table of routes
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        typealias Responder = (Message) -> Reply
+
+        fun hoursHandler(message: Message): Reply = Reply(Kind.ANSWER, "Open 9 to 5.")
+        fun wifiHandler(message: Message): Reply = Reply(Kind.ANSWER, "Use eduroam.")
+
+        val routes: List<Pair<String, Responder>> = listOf(
+            Pair("hours", ::hoursHandler),          // constructor form
+            "wifi" to ::wifiHandler,                // infix form: same thing
+            "ping" to { Reply(Kind.ANSWER, "pong") },
+        )
+
+        fun main() {
+            println(routes.map { it.first })
+            val (name, handler) = routes[1]
+            println("$name -> ${handler(Message("wifi")).text}")
+        }
+  - prose: |
+      ## Step 3: a function that builds the router
+
+      Now write a function that takes a table and **returns a `Responder`**. It does not take a message. The
+      message arrives later, when the returned function is called, so the body is a lambda whose parameter is
+      the message. Inside the lambda: find the first route whose key matches, and call its handler; if there is
+      none, return the fallback.
+  - example:
+      title: From a table to a router
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        typealias Responder = (Message) -> Reply
+
+        fun command(text: String): String = text.substringBefore(" ")
+
+        fun buildBot(routes: List<Pair<String, Responder>>): Responder = { message ->
+            val match = routes.firstOrNull { it.first == command(message.text) }
+            if (match != null) match.second(message) else Reply(Kind.UNKNOWN)
+        }
+
+        fun main() {
+            val bot: Responder = buildBot(
+                listOf(
+                    "ping" to { Reply(Kind.ANSWER, "pong") },
+                    "who" to { m -> Reply(Kind.ANSWER, "You are ${m.sender}") },
+                ),
+            )
+
+            println(bot(Message("ping")))
+            println(bot(Message("who", "ada")))
+            println(bot(Message("dance")))
+        }
+  - prose: |
+      Look at what each piece is.
+
+      - `buildBot(...)` runs once and returns a function. The lambda *closes over* `routes`.
+      - `bot` is a `Responder`, the same type as an individual handler. Anything that works on a handler
+        works on a whole bot.
+      - `match` is a `Pair<String, Responder>?`. `match.second` is the handler and `match.second(message)`
+        calls it.
+
+      The body can be shortened with the null-handling operators once you are comfortable with it:
+
+      ```kotlin
+      routes.firstOrNull { it.first == command(message.text) }?.second?.invoke(message)
+          ?: Reply(Kind.UNKNOWN)
+      ```
+
+      `invoke` is the method behind calling a function value; `f?.invoke(x)` is the safe-call form of `f(x)`.
+      Write whichever version you can explain.
+  - haskell: |
+      This is the step the spec describes as "thinking back to Haskell": a function that takes a table and
+      returns a function. Curried, the two stages are invisible; in Kotlin the second stage is the lambda.
+
+      ```haskell
+      type Responder = Message -> Reply
+
+      buildBot :: [(String, Responder)] -> Responder
+      buildBot routes m = case lookup (command (text m)) routes of
+        Just handler -> handler m
+        Nothing      -> Reply Unknown ""
+      ```
+
+      `lookup key table` is `table.firstOrNull { it.first == key }?.second`.
+  - check:
+      id: skill-routes-as-data-c1
+      type: mc
+      title: When does the lambda run?
+      prompt: "In `val bot = buildBot(routes)`, when is the search through `routes` performed?"
+      options:
+        - "Once, when `buildBot(routes)` is evaluated."
+        - "Each time `bot` is called with a message."
+        - "When the program starts, before `main`."
+        - "Never, unless `routes` is empty."
+      answer: 1
+      explanation: "`buildBot` only constructs and returns the lambda. The body of the lambda, including the search, runs each time the returned function is applied to a message."
+  - check:
+      id: skill-routes-as-data-c2
+      type: fill
+      title: A route by reference
+      prompt: "Fill the blank so the table maps `\"help\"` to the existing function and the program prints `1`."
+      code: |
+        fun helpHandler(text: String): String = "Try: hours, wifi"
+
+        val table: List<Pair<String, (String) -> String>> = listOf("help" to ____)
+
+        fun main() {
+            println(table.size)
+        }
+      accepted: ["::helpHandler", "{ helpHandler(it) }"]
+      expectedOutput: "1"
+      explanation: "`::helpHandler` is the function as a value. `helpHandler` alone is not an expression, and `helpHandler()` would be a call."

@@ -1,0 +1,142 @@
+title: Function types and typealias
+summary: "Functions are values. How to write the type of a function, store one in a val, and give a long type a short name."
+blocks:
+  - prose: |
+      In Kotlin, as in Haskell, a function is a value: it can be stored in a variable, put in a list, passed
+      as an argument and returned as a result. To do any of that you need to be able to write down the *type*
+      of a function.
+
+      A function type lists the parameter types in parentheses, then an arrow, then the result type:
+
+      | Type | Meaning |
+      |---|---|
+      | `(Int) -> Int` | takes an `Int`, returns an `Int` |
+      | `(String, Int) -> Boolean` | takes a `String` and an `Int`, returns a `Boolean` |
+      | `() -> String` | takes nothing, returns a `String` |
+      | `(Int) -> (Int) -> Int` | takes an `Int`, returns a function from `Int` to `Int` |
+
+      The parentheses round the parameters are required, even when there is only one.
+  - example:
+      title: Functions stored in vals
+      code: |
+        fun main() {
+            val double: (Int) -> Int = { x -> x * 2 }
+            val longerThan: (String, Int) -> Boolean = { s, n -> s.length > n }
+            val greeting: () -> String = { "hello" }
+
+            // A value of function type is called like any function.
+            println(double(21))
+            println(longerThan("kotlin", 3))
+            println(greeting())
+
+            val ops: List<(Int) -> Int> = listOf(double, { x -> x + 1 })
+            println(ops.map { op -> op(10) })
+        }
+  - haskell: |
+      A function type is a Haskell type signature with the parameters in parentheses.
+
+      | Haskell | Kotlin |
+      |---|---|
+      | `Int -> Int` | `(Int) -> Int` |
+      | `String -> Int -> Bool` | `(String, Int) -> Boolean` |
+      | `(Int -> Int) -> [Int] -> [Int]` | `((Int) -> Int, List<Int>) -> List<Int>` |
+
+      The difference is currying. `String -> Int -> Bool` in Haskell really means
+      `String -> (Int -> Bool)`, and you may supply the arguments one at a time. `(String, Int) -> Boolean`
+      takes both together. The curried Kotlin type would be `(String) -> (Int) -> Boolean`, which you can write
+      but will rarely see.
+  - prose: |
+      ## typealias
+
+      Function types get long, and a program that passes functions around repeats them often. `typealias` gives
+      a type a second name. It does not create a new type; the alias and the original are interchangeable
+      everywhere. Type aliases are declared at the top level of a file, outside any function.
+  - example:
+      title: Naming a function type
+      code: |
+        typealias Scorer = (String) -> Int
+
+        val byLength: Scorer = { word -> word.length }
+        val byVowels: Scorer = { word -> word.count { it in "aeiou" } }
+
+        fun best(words: List<String>, score: Scorer): String =
+            words.maxBy { score(it) }
+
+        fun main() {
+            val words = listOf("queue", "matrix", "museum")
+            println(best(words, byLength))
+            println(best(words, byVowels))
+
+            // An alias is only a name: a plain (String) -> Int fits where a Scorer is wanted.
+            val plain: (String) -> Int = { it.indexOf("u") }
+            println(best(words, plain))
+        }
+  - haskell: |
+      `typealias` is Haskell's `type`: a synonym, not a new type (it is not `newtype` or `data`).
+
+      ```haskell
+      type Scorer = String -> Int
+      ```
+
+      ```kotlin
+      typealias Scorer = (String) -> Int
+      ```
+  - prose: |
+      A function declared with `fun` has a function type too. `fun parse(s: String): Int` has the type
+      `(String) -> Int`, so it "matches" a `typealias` for `(String) -> Int` without any extra work. The next
+      lesson shows how to refer to such a function as a value.
+  - example:
+      title: Aliases for data shapes
+      code: |
+        typealias Settings = List<Pair<String, String>>
+
+        fun describe(settings: Settings): String =
+            settings.joinToString("; ") { (key, value) -> "$key=$value" }
+
+        fun main() {
+            val s: Settings = listOf("theme" to "dark", "font" to "mono")
+            println(describe(s))
+            println(s.size)
+        }
+  - check:
+      id: function-types-c1
+      type: mc
+      title: Reading a function type
+      prompt: "Which declaration has the type `(String, Int) -> String`?"
+      options:
+        - "`fun pad(s: String): Int = s.length`"
+        - "`fun pad(s: String, n: Int): String = s + \" \".repeat(n)`"
+        - "`fun pad(n: Int, s: String): String = s + \" \".repeat(n)`"
+        - "`fun pad(s: String, n: Int): Unit = println(s)`"
+      answer: 1
+      explanation: "The parameter types must appear in the same order, `String` then `Int`, and the result must be a `String`."
+  - check:
+      id: function-types-c2
+      type: fill
+      title: Write the type
+      prompt: "Fill in the type of `isShort`."
+      code: |
+        fun main() {
+            val isShort: ____ = { s -> s.length < 4 }
+            println(isShort("abc"))
+        }
+      accepted: ["(String) -> Boolean"]
+      expectedOutput: "true"
+      explanation: "It takes a `String` (it calls `.length` on it) and the comparison produces a `Boolean`."
+  - check:
+      id: function-types-c3
+      type: predict
+      title: Functions in a list
+      prompt: "`Step` is an alias for a function from `Int` to `Int`."
+      code: |
+        typealias Step = (Int) -> Int
+
+        fun main() {
+            val steps: List<Step> = listOf({ it + 1 }, { it * 10 }, { it - 3 })
+            println(steps.map { it(2) })
+            println(steps[1](steps[0](4)))
+        }
+      expected: |
+        [3, 20, -1]
+        50
+      explanation: "The first line applies each function to 2. The second applies the first function to 4 (giving 5) and then the second to the result."

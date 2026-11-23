@@ -1,0 +1,146 @@
+overview:
+  intro: |
+    This week's lab is the first in Kotlin. You build a very small web framework: functions that take a URL
+    apart, *handlers* that turn a request into a response, a *router* that picks the handler for a request,
+    and, in the optional extensions, a router built from a table of routes and *filters* that wrap handlers
+    with checks such as authorisation.
+
+    The idea underneath is that a server is a function from a request to a response. The lab text points
+    to two sources for it: the [http4k](https://www.http4k.org/) framework and Marius Eriksen's paper
+    [Your Server as a Function](https://monkey.org/~marius/funsrv.pdf). Neither is needed to do the
+    exercise, but both are short and worth a look afterwards.
+
+    Almost everything here is something you already did in Haskell, in new syntax: functions over strings
+    and lists, pairs, a lookup that might find nothing, and functions that take and return functions. The
+    lab's stated aims say as much: it is about adapting what you know from functional programming to
+    Kotlin. The new parts are the syntax, the String library, `null` in place of `Maybe`, and the JUnit
+    way of testing.
+
+    This page is a paraphrase written for revision. The lab specification on Scientia and the skeleton in
+    your GitLab repository are the authority on what is required.
+  facts:
+    - { label: "Exercise", value: "Kotlin Web Server (COMP40009 Computing Practical 1)" }
+    - { label: "Lab week", value: "23–27 November 2026" }
+    - { label: "Due", value: "Friday 27 November 2026, 19:00 (London)" }
+    - { label: "Also listed", value: "Scientia shows a second deadline entry on Monday 30 November 2026. Check Scientia for what it applies to." }
+    - { label: "Lectures", value: "Kotlin syntax (Dr Matt Collison): projects in IntelliJ, functions, basic types, conditionals, strings, pairs, nullable types, recursion" }
+    - { label: "Submission", value: "Push to your GitLab repository, then test and submit through LabTS" }
+  files:
+    - { name: "WebServer.kt", role: "Where you work. Contains `TODO()` placeholders to replace with your functions." }
+    - { name: "Http.kt", role: "Provided types: `Request`, `Response` and `Status`. Read it before you start." }
+    - { name: "WebServerTest.kt", role: "The tests. Most start commented out; you uncomment them one at a time and add your own." }
+    - { name: "build.sh", role: "Run locally before you push. Compiles the code, runs the tests and checks code style." }
+  checklist:
+    - concept: "Values, types and function definitions"
+      detail: "Declaring `val`s, writing functions with expression and block bodies, parameter and return types."
+      lessons: [values-and-types, functions]
+      drills: [w-template, w-expression-body, w-shout, s-named-args]
+      parts: [part-a]
+    - concept: "Cutting a string at a delimiter"
+      detail: "Extracting the scheme, host and path of a URL with `substringBefore`, `substringAfter`, `substring`, `indexOf`."
+      lessons: [strings, skill-decomposing]
+      drills: [w-before, s-username, s-extension, s-missing-delimiter, p-file-path]
+      parts: [part-a]
+    - concept: "Splitting a string into a list"
+      detail: "`split` on a separator, then processing each piece with `map`."
+      lessons: [strings, lists]
+      drills: [w-split, w-map, s-join-fold, x-word-pairs]
+      parts: [part-a]
+    - concept: "Pairs and lists of pairs"
+      detail: "Returning query parameters as `List<Pair<String, String>>`; `Pair(a, b)`, `a to b`, `.first`, `.second`, destructuring."
+      lessons: [pairs, skill-decomposing]
+      drills: [w-destructure, s-parse-entry, x-word-pairs, p-options]
+      parts: [part-a]
+    - concept: "The empty and missing cases"
+      detail: "A URL with no query string must give an empty list. Knowing what each String method returns when its delimiter is absent."
+      lessons: [strings, skill-decomposing]
+      drills: [s-missing-delimiter, s-extension, x-word-pairs, p-options]
+      parts: [part-a]
+    - concept: "Using the provided classes"
+      detail: "Constructing `Request` and `Response`, a constructor parameter with a default value, reading properties, an enum with a numeric property."
+      lessons: [classes]
+      drills: [w-data-equality, w-enum-code, s-label]
+      parts: [part-b, part-c]
+    - concept: "Writing a handler"
+      detail: "A function from a request to a response: first a constant one, then one that reads the request."
+      lessons: [skill-handler, functions]
+      drills: [p-ticket-handler]
+      parts: [part-b]
+    - concept: "Looking something up that may be absent"
+      detail: "Finding a named parameter in the list of pairs: `firstOrNull`, nullable types, `?.` and `?:` for a default."
+      lessons: [nullability, lists]
+      drills: [w-elvis, s-first-or-null, s-lookup, x-safe-chain, p-option-default]
+      parts: [part-a, part-b]
+    - concept: "Capitalising a word"
+      detail: "`replaceFirstChar { it.uppercase() }`, and why not the deprecated `capitalize()`."
+      lessons: [strings]
+      drills: [s-capitalise, p-ticket-handler]
+      parts: [part-b]
+    - concept: "Routing with a fallback"
+      detail: "`when` as an expression on the path, one branch per handler, and an `else` that returns a 404 response with an empty body."
+      lessons: [if-when, skill-router]
+      drills: [w-when-else, s-grade, p-ticket-router, p-fallback-mc]
+      parts: [part-c]
+    - concept: "Function types and type aliases"
+      detail: "Extension: `typealias HttpHandler = (Request) -> Response`; reading and writing types such as `(A) -> B`."
+      lessons: [function-types]
+      drills: [s-function-type, x-typealias]
+      parts: [part-d]
+    - concept: "Function references"
+      detail: "Extension: putting existing functions into a list with `::name`."
+      lessons: [function-references]
+      drills: [s-reference, x-reference-list, x-pairs-of-functions, p-route-table-fill]
+      parts: [part-d]
+    - concept: "Lambdas and higher-order functions"
+      detail: "Extension: writing a function inline, `it`, trailing lambdas, calling a function held in a variable."
+      lessons: [lambdas]
+      drills: [x-apply-twice, x-trailing, x-higher-order-count]
+      parts: [part-d, part-e]
+    - concept: "Routes as data; returning a function"
+      detail: "Extension: `configureRoutes` takes a `List<Pair<String, HttpHandler>>` and returns an `HttpHandler`."
+      lessons: [closures, skill-routes-as-data]
+      drills: [x-adder, x-pairs-of-functions, p-build-machine, p-route-table-fill]
+      parts: [part-d]
+    - concept: "Filters"
+      detail: "Extension: a function such as `requireToken(token, wrapped)` that returns a handler which either calls the wrapped handler or answers 403 itself."
+      lessons: [closures, skill-filter]
+      drills: [x-closure-capture, p-require-card, p-counting-filter]
+      parts: [part-e]
+    - concept: "Composing filters"
+      detail: "Extension: stacking filters, using a filtered handler in a route table, and knowing which filter runs first."
+      lessons: [closures, skill-filter]
+      drills: [x-compose, p-filter-order, p-counting-filter]
+      parts: [part-e]
+    - concept: "Working with the tests"
+      detail: "Uncommenting tests one at a time, `@Test` and `assertEquals(expected, actual)`, reading a failure, adding tests of your own."
+      lessons: [testing]
+      drills: [x-assert-order]
+      parts: [part-a, part-b, part-c]
+
+groups:
+  - id: foundations
+    title: Foundations
+    blurb: "The Kotlin you need this week, in the order the exercise uses it."
+    lessons:
+      - values-and-types
+      - functions
+      - strings
+      - if-when
+      - nullability
+      - pairs
+      - lists
+      - classes
+      - function-types
+      - function-references
+      - lambdas
+      - closures
+      - testing
+  - id: ppt-skills
+    title: PPT skills
+    blurb: "The five moves the exercise asks for, each worked through in a different setting."
+    lessons:
+      - skill-decomposing
+      - skill-handler
+      - skill-router
+      - skill-routes-as-data
+      - skill-filter

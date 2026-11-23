@@ -1,0 +1,130 @@
+title: Function references
+summary: "Using a named function as a value with the double-colon notation."
+blocks:
+  - prose: |
+      In Haskell you pass a named function by writing its name: `map square xs`. In Kotlin a bare function
+      name followed by nothing is not an expression. To refer to a function declared with `fun` *as a value*,
+      put two colons in front of its name: `::square`.
+
+      The result has the function's type, so it can go anywhere a value of that function type is expected.
+  - example:
+      title: Referring to named functions
+      code: |
+        fun square(x: Int): Int = x * x
+        fun negate(x: Int): Int = -x
+
+        fun main() {
+            val f: (Int) -> Int = ::square
+            println(f(6))
+
+            println(listOf(1, 2, 3).map(::square))
+
+            val funcs = listOf(::square, ::negate)
+            println(funcs.map { it(5) })
+        }
+  - haskell: |
+      `::name` is just naming the function. Kotlin needs the marker because `name` on its own could not be told
+      apart from a property or a call with the parentheses forgotten.
+
+      ```haskell
+      map square [1, 2, 3]
+      ```
+
+      ```kotlin
+      listOf(1, 2, 3).map(::square)
+      ```
+
+      Note the brackets: a function reference is an ordinary argument, so it goes in round parentheses,
+      `map(::square)`. Braces are for lambdas: `map { square(it) }`. Both mean the same.
+  - prose: |
+      ## References in data
+
+      Because a reference is a value, it can be half of a `Pair`. A list that pairs a name with the function to
+      run for that name is a dispatch table, and it is the heart of the "more flexible routing" extension.
+  - example:
+      title: A table of named functions
+      code: |
+        fun shout(s: String): String = s.uppercase() + "!"
+        fun whisper(s: String): String = s.lowercase() + "..."
+        fun echo(s: String): String = "$s $s"
+
+        val styles: List<Pair<String, (String) -> String>> = listOf(
+            "shout" to ::shout,
+            "whisper" to ::whisper,
+            "echo" to ::echo,
+        )
+
+        fun apply(style: String, text: String): String {
+            val entry = styles.find { it.first == style }
+            return if (entry != null) entry.second(text) else text
+        }
+
+        fun main() {
+            println(apply("shout", "Hello"))
+            println(apply("echo", "Hello"))
+            println(apply("mime", "Hello"))
+        }
+  - prose: |
+      A reference and a lambda that calls the function are interchangeable. Use the reference when you are
+      passing an existing function unchanged; use a lambda when you need to adapt the arguments or do something
+      extra.
+  - example:
+      title: Reference or lambda
+      code: |
+        fun isLong(s: String): Boolean = s.length > 5
+
+        fun main() {
+            val words = listOf("route", "handler", "filter", "to")
+
+            println(words.filter(::isLong))
+            println(words.filter { isLong(it) })       // same result
+            println(words.filter { !isLong(it) })      // adapting: a lambda is needed
+
+            // Methods on a type can be referenced through the type's name.
+            println(words.map(String::length))
+        }
+  - check:
+      id: function-references-c1
+      type: fill
+      title: Pass the function
+      prompt: "Fill the blank so that `isEven` is passed to `filter` and the program prints `[2, 4]`."
+      code: |
+        fun isEven(n: Int): Boolean = n % 2 == 0
+
+        fun main() {
+            println(listOf(1, 2, 3, 4).filter(____))
+        }
+      accepted: ["::isEven", "{ isEven(it) }", "{ n -> isEven(n) }", "{ x -> isEven(x) }"]
+      expectedOutput: "[2, 4]"
+      explanation: "`::isEven` refers to the function as a value. A lambda that calls it, `{ isEven(it) }`, would also be accepted between the parentheses."
+  - check:
+      id: function-references-c2
+      type: mc
+      title: Type of a reference
+      prompt: "Given `fun join(a: String, b: String): String = a + b`, what is the type of `::join`?"
+      options:
+        - "`String`"
+        - "`(String) -> String`"
+        - "`(String, String) -> String`"
+        - "`(String) -> (String) -> String`"
+      answer: 2
+      explanation: "A reference has the type of the function it refers to: two `String` parameters, taken together, and a `String` result."
+  - check:
+      id: function-references-c3
+      type: predict
+      title: A list of references
+      prompt: "Each function is applied to the same argument."
+      code: |
+        fun inc(x: Int) = x + 1
+        fun triple(x: Int) = 3 * x
+
+        fun main() {
+            val table = listOf("inc" to ::inc, "triple" to ::triple)
+            for ((name, f) in table) {
+                println("$name: ${f(4)}")
+            }
+        }
+      expected: |
+        inc: 5
+        triple: 12
+      explanation: "Each pair is destructured into a name and a function, and the function is called with 4."

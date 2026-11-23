@@ -1,0 +1,147 @@
+title: Writing a filter
+summary: "A function that wraps a handler to add a check or a side job, and how filters stack."
+blocks:
+  - prose: |
+      Some behaviour belongs to many handlers at once: checking who is asking, recording that a request
+      happened. Writing it inside every handler would repeat it. A **filter** states it once. A filter takes a
+      handler and returns a new handler that does the extra work and, if appropriate, calls the original.
+
+      The crucial property is that the result has the same type as the thing it wraps. So a filtered handler
+      can go anywhere a handler can: into a route table, or inside another filter.
+
+      ## A filter that can refuse
+
+      `staffOnly` protects a handler. It takes the name of the person allowed and the handler to protect, and
+      returns a `Responder`. When that responder is called it compares the message's sender with the allowed
+      name. On a match it hands the message to the wrapped handler and returns its reply. Otherwise it returns
+      a refusal and the wrapped handler is never called.
+  - example:
+      title: A filter that guards a handler
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+        typealias Responder = (Message) -> Reply
+
+        fun rotaHandler(message: Message): Reply = Reply(Kind.ANSWER, "You are on shift Tuesday.")
+
+        fun staffOnly(allowed: String, wrapped: Responder): Responder = { message ->
+            if (message.sender == allowed) wrapped(message) else Reply(Kind.REFUSED)
+        }
+
+        fun main() {
+            val guarded: Responder = staffOnly("ada", ::rotaHandler)
+
+            println(guarded(Message("rota", "ada")))
+            println(guarded(Message("rota", "mallory")))
+            println(guarded(Message("rota")))        // sender defaults to ""
+        }
+  - prose: |
+      The structure is always the same three lines: the signature ends in the handler type, the body is a
+      lambda taking the message, and inside the lambda there is a decision about whether and how to call
+      `wrapped`.
+
+      ## A filter that adds a side job
+
+      A filter does not have to refuse anything. This one always calls the wrapped handler, and records the
+      command and the outcome in a log. The log is a `MutableList`, a list that can be added to; the filter
+      captures it like any other value.
+  - example:
+      title: A logging filter, and stacking filters
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+        typealias Responder = (Message) -> Reply
+
+        fun rotaHandler(message: Message): Reply = Reply(Kind.ANSWER, "You are on shift Tuesday.")
+
+        fun staffOnly(allowed: String, wrapped: Responder): Responder = { message ->
+            if (message.sender == allowed) wrapped(message) else Reply(Kind.REFUSED)
+        }
+
+        fun logged(log: MutableList<String>, wrapped: Responder): Responder = { message ->
+            val reply = wrapped(message)
+            log.add("${message.text}: ${reply.kind}")
+            reply
+        }
+
+        fun main() {
+            val log = mutableListOf<String>()
+
+            // Outermost first: log everything, including refusals.
+            val handler: Responder = logged(log, staffOnly("ada", ::rotaHandler))
+
+            handler(Message("rota", "ada"))
+            handler(Message("rota", "mallory"))
+            println(log)
+        }
+  - prose: |
+      When filters are stacked, the outermost one runs first. `logged(log, staffOnly(...))` logs every message,
+      because the logging wrapper sees the message before the staff check does. Swap them,
+      `staffOnly("ada", logged(log, ::rotaHandler))`, and refused messages never reach the logger.
+
+      ## Filters in a route table
+
+      Since a filtered handler is a handler, it can be the second half of a route.
+
+      ```kotlin
+      val routes: List<Pair<String, Responder>> = listOf(
+          "hours" to ::hoursHandler,
+          "rota" to staffOnly("ada", ::rotaHandler),
+      )
+      ```
+
+      Note that `staffOnly("ada", ::rotaHandler)` is a *call* that returns a function, so it has no `::` in
+      front; `::rotaHandler` is a reference to an existing function, so it does.
+  - haskell: |
+      A filter is a higher-order function `Responder -> Responder` with some configuration applied first.
+      Stacking filters is function composition.
+
+      ```haskell
+      staffOnly :: String -> Responder -> Responder
+      staffOnly allowed wrapped m
+        | sender m == allowed = wrapped m
+        | otherwise           = Reply Refused ""
+
+      handler = (logged . staffOnly "ada") rotaHandler
+      ```
+  - check:
+      id: skill-filter-c1
+      type: predict
+      title: Which filter runs first?
+      prompt: "`tag` adds a label to whatever the wrapped function returns."
+      code: |
+        typealias Step = (String) -> String
+
+        fun tag(label: String, wrapped: Step): Step = { s -> "$label(${wrapped(s)})" }
+
+        fun reject(word: String, wrapped: Step): Step = { s ->
+            if (s == word) "rejected" else wrapped(s)
+        }
+
+        fun main() {
+            val base: Step = { it.uppercase() }
+            val a = tag("a", reject("no", base))
+            val b = reject("no", tag("b", base))
+            println(a("yes"))
+            println(a("no"))
+            println(b("no"))
+        }
+      expected: |
+        a(YES)
+        a(rejected)
+        rejected
+      explanation: "In `a` the tag is outermost, so it wraps even the rejection. In `b` the rejection is outermost and the tag is never reached for `\"no\"`."
+  - check:
+      id: skill-filter-c2
+      type: mc
+      title: The type of a filter's result
+      prompt: "Why must `staffOnly(allowed, wrapped)` return a `Responder` rather than a `Reply`?"
+      options:
+        - "Because a `Reply` cannot hold a refusal."
+        - "Because there is no message yet: the filter is applied when the routes are set up, and the message arrives later."
+        - "Because lambdas cannot return data classes."
+        - "Because `typealias` requires it."
+      answer: 1
+      explanation: "The filter is configured ahead of time and produces a handler. The message is only supplied when that handler is eventually called, which is why the body is a lambda taking the message."

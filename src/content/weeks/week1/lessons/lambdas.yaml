@@ -1,0 +1,137 @@
+title: Lambdas and higher-order functions
+summary: "Writing a function inline, the 'it' shorthand, the trailing-lambda rule, and writing functions that take functions."
+blocks:
+  - prose: |
+      A **lambda** is a function written inline, without a name. It goes in braces: parameters, an arrow, then
+      the body. The value of the lambda is the value of the last expression in its body; you do not write
+      `return`.
+  - example:
+      title: Lambda syntax
+      code: |
+        fun main() {
+            val add: (Int, Int) -> Int = { a, b -> a + b }
+            val square = { x: Int -> x * x }        // parameter type given, so the val's type is inferred
+
+            println(add(2, 3))
+            println(square(9))
+
+            // A lambda with several statements: the last expression is the result.
+            val describe: (Int) -> String = { n ->
+                val parity = if (n % 2 == 0) "even" else "odd"
+                "$n is $parity"
+            }
+            println(describe(7))
+        }
+  - haskell: |
+      A lambda is a lambda. The braces replace the backslash and the parentheses you usually needed.
+
+      ```haskell
+      \x -> x * 2
+      \a b -> a + b
+      ```
+
+      ```kotlin
+      { x -> x * 2 }
+      { a, b -> a + b }
+      ```
+
+      With exactly one parameter you may leave out `x ->` and call the parameter `it`: `{ it * 2 }`. That is
+      close to an operator section such as `(* 2)`.
+  - prose: |
+      ## it, and the trailing lambda
+
+      Two conventions make lambdas lighter to write.
+
+      - If a lambda has exactly one parameter, you can omit the parameter list and refer to the parameter as
+        `it`.
+      - If the *last* argument of a call is a lambda, it can be written after the closing parenthesis. If the
+        lambda is the only argument, the parentheses can be dropped altogether.
+
+      So these four calls are the same:
+  - example:
+      title: Four spellings of one call
+      code: |
+        fun main() {
+            val xs = listOf(1, 2, 3)
+
+            println(xs.map({ x -> x * 2 }))   // lambda as an ordinary argument
+            println(xs.map() { x -> x * 2 })  // trailing lambda
+            println(xs.map { x -> x * 2 })    // empty parentheses dropped
+            println(xs.map { it * 2 })        // implicit parameter
+
+            // Trailing lambda after other arguments:
+            println(xs.fold(100) { acc, x -> acc - x })
+            println(xs.joinToString("/") { "<$it>" })
+        }
+  - prose: |
+      ## Writing higher-order functions
+
+      A function that takes a function declares a parameter of function type. Inside, the parameter is called
+      like any other function.
+  - example:
+      title: Functions as parameters
+      code: |
+        fun applyTwice(x: Int, f: (Int) -> Int): Int = f(f(x))
+
+        fun countWhere(words: List<String>, keep: (String) -> Boolean): Int =
+            words.filter(keep).size
+
+        fun firstMatching(xs: List<Int>, default: Int, test: (Int) -> Boolean): Int =
+            xs.firstOrNull(test) ?: default
+
+        fun main() {
+            println(applyTwice(3) { it * it })
+            println(applyTwice(3, { it + 10 }))
+
+            val words = listOf("get", "post", "delete")
+            println(countWhere(words) { it.length > 3 })
+            println(firstMatching(listOf(5, 12, 20), -1) { it > 10 })
+            println(firstMatching(listOf(5, 12, 20), -1) { it > 50 })
+        }
+  - note:
+      title: Braces or parentheses?
+      md: |
+        `xs.map { f(it) }` passes a lambda. `xs.map(::f)` and `xs.map(f)` pass an existing function value.
+        Writing `xs.map { ::f }` or `xs.map { f }` compiles but is wrong: it is a lambda that *returns* the
+        function for every element instead of calling it.
+  - check:
+      id: lambdas-c1
+      type: predict
+      title: it
+      prompt: "Each lambda has one parameter, referred to as `it`."
+      code: |
+        fun main() {
+            val names = listOf("ada", "grace", "alan")
+            println(names.filter { it.startsWith("a") }.map { it.length })
+            println(names.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } })
+        }
+      expected: |
+        [3, 4]
+        Ada Grace Alan
+      explanation: "The filter keeps `ada` and `alan`. In the second line the outer lambda's parameter is `it`; the inner lambda names its own parameter `c` to avoid confusion."
+  - check:
+      id: lambdas-c2
+      type: fill
+      title: Two-parameter lambda
+      prompt: "Fill the blank so the program prints `7`."
+      code: |
+        fun combine(a: Int, b: Int, op: (Int, Int) -> Int): Int = op(a, b)
+
+        fun main() {
+            println(combine(3, 4) { x, y ____ x + y })
+        }
+      accepted: ["->"]
+      expectedOutput: "7"
+      explanation: "The arrow separates a lambda's parameters from its body."
+  - check:
+      id: lambdas-c3
+      type: mc
+      title: Trailing lambda
+      prompt: "Given `fun retry(times: Int, action: () -> String): String`, which call is valid?"
+      options:
+        - "`retry(3) { \"done\" }`"
+        - "`retry { \"done\" }(3)`"
+        - "`retry(3, \"done\")`"
+        - "`retry(3) -> \"done\"`"
+      answer: 0
+      explanation: "The lambda is the last argument, so it may follow the parentheses that hold the other arguments. `retry(3, { \"done\" })` would also be valid."

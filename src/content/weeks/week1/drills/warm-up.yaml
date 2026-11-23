@@ -1,0 +1,198 @@
+- id: w-template
+  type: predict
+  title: Templates and reassignment
+  lesson: values-and-types
+  prompt: "Track the value of `count` line by line."
+  code: |
+    fun main() {
+        val unit = "test"
+        var count = 1
+        println("$count $unit")
+        count += 2
+        println("$count ${unit}s, ${count * 2} assertions")
+    }
+  expected: |
+    1 test
+    3 tests, 6 assertions
+  explanation: "`$count` inserts a name; `${...}` inserts any expression. Braces are needed in `${unit}s` so the `s` is not read as part of the name."
+
+- id: w-expression-body
+  type: mc
+  title: Two bodies, one function
+  lesson: functions
+  prompt: "Which definition is equivalent to `fun inc(x: Int): Int = x + 1`?"
+  options:
+    - "`fun inc(x: Int): Int { x + 1 }`"
+    - "`fun inc(x: Int): Int { return x + 1 }`"
+    - "`fun inc(x: Int) { return x + 1 }`"
+    - "`fun inc(x: Int): Int = { x + 1 }`"
+  answer: 1
+  explanation: "A block body needs `return` and a declared return type. The last option makes the body a lambda, so its type would be `() -> Int`, not `Int`."
+
+- id: w-before
+  type: fill
+  title: Up to the delimiter
+  lesson: strings
+  prompt: "Fill the blank with a `String` method so the program prints `2026`."
+  code: |
+    fun main() {
+        println("2026-11-27".____("-"))
+    }
+  accepted: ["substringBefore"]
+  expectedOutput: "2026"
+  explanation: "`substringBefore` returns everything before the first occurrence of the delimiter."
+
+- id: w-split
+  type: predict
+  title: Splitting
+  lesson: strings
+  prompt: "`split` returns a list."
+  code: |
+    fun main() {
+        val parts = "huxley/3/11".split("/")
+        println(parts.size)
+        println(parts[0])
+        println(parts.last())
+        println("huxley".split("/").size)
+    }
+  expected: |
+    3
+    huxley
+    11
+    1
+  explanation: "Three pieces, numbered from 0. A string with no delimiter splits into one piece: itself."
+
+- id: w-when-else
+  type: mc
+  title: Exhaustive when
+  lesson: if-when
+  prompt: "What does `label(3)` return?"
+  code: |
+    fun label(n: Int): String = when (n) {
+        1 -> "one"
+        2 -> "two"
+        else -> "many"
+    }
+  options:
+    - "`\"3\"`"
+    - "`\"many\"`"
+    - "`null`"
+    - "It throws an exception"
+  answer: 1
+  explanation: "No branch matches 3, so the `else` branch supplies the value."
+
+- id: w-elvis
+  type: fill
+  title: A default for null
+  lesson: nullability
+  prompt: "Fill the blank with an operator so the program prints `0`."
+  code: |
+    fun main() {
+        val n: Int? = "abc".toIntOrNull()
+        println(n ____ 0)
+    }
+  accepted: ["?:"]
+  expectedOutput: "0"
+  explanation: "`\"abc\".toIntOrNull()` is `null`; the Elvis operator replaces it with the default."
+
+- id: w-destructure
+  type: predict
+  title: Taking a pair apart
+  lesson: pairs
+  prompt: "`to` builds a pair."
+  code: |
+    fun main() {
+        val route = "/home" to 200
+        val (path, code) = route
+        println(path)
+        println(code + 1)
+        println(route.first.length)
+    }
+  expected: |
+    /home
+    201
+    5
+  explanation: "Destructuring binds `path` to the first component and `code` to the second."
+
+- id: w-map
+  type: fill
+  title: Transform every element
+  lesson: lists
+  prompt: "Fill the blank with a list operation so the program prints `[2, 4, 6]`."
+  code: |
+    fun main() {
+        println(listOf(1, 2, 3).____ { it * 2 })
+    }
+  accepted: ["map"]
+  expectedOutput: "[2, 4, 6]"
+  explanation: "`map` applies the function to each element and collects the results."
+
+- id: w-data-equality
+  type: mc
+  title: Equality of data classes
+  lesson: classes
+  prompt: "Given `data class Tag(val name: String, val weight: Int = 1)`, which expression is `true`?"
+  options:
+    - "`Tag(\"a\") == Tag(\"a\", 2)`"
+    - "`Tag(\"a\") == Tag(\"a\", 1)`"
+    - "`Tag(\"a\") == Tag(\"A\")`"
+    - "`Tag(\"a\", 1) == Tag(\"b\", 1)`"
+  answer: 1
+  explanation: "Data classes compare property by property, and the omitted `weight` takes its default of 1."
+
+- id: w-enum-code
+  type: predict
+  title: An enum with a value
+  lesson: classes
+  prompt: "Each constant carries a `code`."
+  code: |
+    enum class Light(val code: Int) { RED(1), AMBER(2), GREEN(3) }
+
+    fun main() {
+        val l = Light.AMBER
+        println(l)
+        println(l.code)
+        println(l == Light.GREEN)
+        println(Light.GREEN.code - Light.RED.code)
+    }
+  expected: |
+    AMBER
+    2
+    false
+    2
+  explanation: "Printing an enum constant gives its name; `.code` reads the property set in the constant's declaration."
+
+- id: w-shout
+  type: write
+  title: Your first function
+  lesson: functions
+  prompt: "Write `shout`, which returns its argument in upper case followed by an exclamation mark: `shout(\"hello\")` is `\"HELLO!\"`."
+  starter: |
+    fun shout(s: String): String = TODO()
+  solution: |
+    fun shout(s: String): String = s.uppercase() + "!"
+  tests:
+    - { name: "shout(\"hello\")", actual: 'shout("hello")', expected: '"HELLO!"' }
+    - { name: "already upper case", actual: 'shout("OK")', expected: '"OK!"' }
+    - { name: "empty string", actual: 'shout("")', expected: '"!"' }
+  explanation: "An expression body is enough. A template works too: `\"${s.uppercase()}!\"`."
+
+- id: w-is-pass
+  type: write
+  title: A Boolean function
+  lesson: if-when
+  prompt: "Write `isPass(mark)`, which is `true` when the mark is 40 or more. Then write `verdict(mark)`, which returns `\"pass\"` or `\"fail\"` and uses `isPass`."
+  starter: |
+    fun isPass(mark: Int): Boolean = TODO()
+
+    fun verdict(mark: Int): String = TODO()
+  solution: |
+    fun isPass(mark: Int): Boolean = mark >= 40
+
+    fun verdict(mark: Int): String = if (isPass(mark)) "pass" else "fail"
+  tests:
+    - { name: "isPass(40)", actual: "isPass(40)", expected: "true" }
+    - { name: "isPass(39)", actual: "isPass(39)", expected: "false" }
+    - { name: "verdict(72)", actual: "verdict(72)", expected: '"pass"' }
+    - { name: "verdict(12)", actual: "verdict(12)", expected: '"fail"' }
+  explanation: "A comparison is already a `Boolean`; there is no need for `if (mark >= 40) true else false`."

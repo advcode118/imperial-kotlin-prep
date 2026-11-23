@@ -1,0 +1,158 @@
+title: Strings and the String API
+summary: "Taking strings apart and putting them back together: the handful of methods that do most of the work."
+blocks:
+  - prose: |
+      A `String` is an immutable sequence of characters. Every operation returns a new string and leaves the
+      original alone. Positions are numbered from 0.
+
+      The first half of this week's exercise is string decomposition, so it is worth knowing this small part of
+      the standard library well. Start with the methods that cut a string at a *delimiter*, because they are the
+      ones you will use most.
+  - example:
+      title: Cutting at a delimiter
+      code: |
+        fun main() {
+            val entry = "tom.smith@imperial.ac.uk"
+
+            println(entry.substringBefore("@"))      // up to the first "@"
+            println(entry.substringAfter("@"))       // after the first "@"
+            println(entry.substringBefore("."))      // first "." wins
+            println(entry.substringAfterLast("."))   // last "." wins
+            println(entry.substringBeforeLast("."))
+
+            // If the delimiter is missing you get the whole string back...
+            println(entry.substringBefore("#"))
+            // ...unless you say what to return instead.
+            println(entry.substringAfter("#", ""))
+            println(entry.substringAfter("#", "").isEmpty())
+        }
+  - note:
+      title: The missing-delimiter rule
+      md: |
+        `substringBefore` and `substringAfter` return the **whole original string** when the delimiter does not
+        occur. That is convenient for "everything before the `?`, if there is one", and a trap for "everything
+        after the `?`", where you usually want an empty string. Pass the second argument, or test with
+        `contains` first.
+  - prose: |
+      ## Positions: indexOf and substring
+
+      `indexOf` gives the position of the first occurrence, or `-1` if there is none. `substring(start, end)`
+      takes the characters from `start` up to but not including `end`; `substring(start)` runs to the end.
+  - example:
+      title: indexOf and substring
+      code: |
+        fun main() {
+            val stamp = "2026-11-27T19:00"
+            val t = stamp.indexOf("T")
+
+            println(t)
+            println(stamp.substring(0, t))     // 2026-11-27
+            println(stamp.substring(t + 1))    // 19:00
+            println(stamp.substring(5, 7))     // 11
+            println(stamp.indexOf("Z"))        // -1: not found
+            println(stamp.length)
+            println(stamp[0])                  // a Char, not a String
+        }
+  - prose: |
+      ## split
+
+      `split` cuts at *every* occurrence of the delimiter and returns a `List<String>`. One detail catches
+      people out: splitting an empty string gives a list containing one empty string, not an empty list.
+  - example:
+      title: split
+      code: |
+        fun main() {
+            val row = "ada,grace,alan"
+            val names = row.split(",")
+            println(names)
+            println(names.size)
+            println(names[1])
+
+            println("key=value".split("="))
+            println("a=b=c".split("=", limit = 2))   // at most two pieces
+            println("".split(",").size)              // 1, not 0
+            println("ada".split(","))                // no delimiter: one piece
+        }
+  - prose: |
+      ## Tests, trims and case
+
+      The remaining methods are small and predictable: `startsWith`, `endsWith`, `contains`, `removePrefix`,
+      `removeSuffix`, `trim`, `uppercase`, `lowercase`, `isEmpty`.
+
+      To capitalise the first letter, modern Kotlin uses `replaceFirstChar { it.uppercase() }`. The braces are a
+      lambda that says what to do with the first character; lambdas get their own lesson. You will also meet
+      the older `capitalize()` in existing code and answers online. It still works, but it is deprecated and the
+      compiler warns about it, so use the modern form.
+  - example:
+      title: Tests, prefixes and capitalising
+      code: |
+        fun main() {
+            val path = "/staff/list"
+
+            println(path.startsWith("/staff"))
+            println(path.contains("list"))
+            println(path.removePrefix("/"))
+            println(path.removePrefix("x"))      // prefix absent: unchanged
+            println("  padded ".trim())
+            println("kotlin".uppercase())
+
+            println("fred".replaceFirstChar { it.uppercase() })
+            println("fred".capitalize())         // deprecated: run to see the warning
+        }
+  - haskell: |
+      A Haskell `String` is a list of characters, so you took strings apart with list functions and recursion.
+      A Kotlin `String` is its own type with a large library of methods, and the idiomatic style is to chain
+      them.
+
+      ```haskell
+      takeWhile (/= '@') entry          -- "tom.smith"
+      drop 1 (dropWhile (/= '@') entry) -- "imperial.ac.uk"
+      ```
+
+      ```kotlin
+      entry.substringBefore("@")
+      entry.substringAfter("@")
+      ```
+
+      Method calls read left to right: `s.trim().lowercase()` is `(map toLower . trim) s`.
+  - check:
+      id: strings-c1
+      type: predict
+      title: Before and after
+      prompt: Remember what happens when the delimiter is missing.
+      code: |
+        fun main() {
+            val s = "report.final.pdf"
+            println(s.substringBefore("."))
+            println(s.substringAfterLast("."))
+            println(s.substringAfter("/"))
+        }
+      expected: |
+        report
+        pdf
+        report.final.pdf
+      explanation: "`substringBefore` stops at the first dot, `substringAfterLast` starts after the last one. There is no `/`, so `substringAfter` returns the whole string."
+  - check:
+      id: strings-c2
+      type: fill
+      title: Capitalise
+      prompt: "Fill the blank so that the program prints `Imperial`."
+      code: |
+        fun main() {
+            println("imperial".replaceFirstChar { ____ })
+        }
+      accepted: ["it.uppercase()", "it.uppercaseChar()", "it.titlecase()", "it.titlecaseChar()"]
+      expectedOutput: "Imperial"
+      explanation: "The lambda receives the first character as `it` and returns its replacement."
+  - check:
+      id: strings-c3
+      type: mc
+      title: Splitting nothing
+      prompt: "What is the value of `\"\".split(\"&\")`?"
+      options:
+        - "An empty list, `[]`, of size 0"
+        - "A list holding one empty string, of size 1"
+        - "`null`"
+        - "It throws an exception"
+      answer: 1
+      explanation: "With no delimiter present, `split` returns the whole input as a single piece, and here the whole input is the empty string. If you want an empty list for empty input, test for it before splitting."

@@ -1,0 +1,146 @@
+title: Writing a handler
+summary: "A handler is a function from a request to a response. Building one up from a constant reply to one that reads its input."
+blocks:
+  - prose: |
+      The exercise models a server as a function: a request goes in, a response comes out. A function of that
+      shape is a **handler**. This lesson and the next three build the same pattern in a different setting, a
+      help-desk chat bot, so that you practise the shape without seeing the web server written out.
+
+      The bot's types mirror the ones you will be given:
+
+      ```kotlin
+      enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+
+      data class Message(val text: String, val sender: String = "")
+
+      data class Reply(val kind: Kind, val text: String = "")
+      ```
+
+      A `Message` has the text that was typed and, optionally, who sent it. A `Reply` has a kind and some
+      text. A message looks like `hours library` or `greet name=tom`: a command word, then arguments.
+
+      ## Step 1: a constant handler
+
+      Start with the simplest thing of the right type: ignore the input and return a fixed reply.
+  - example:
+      title: A handler that always gives the same reply
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun hoursHandler(message: Message): Reply =
+            Reply(Kind.ANSWER, "The help desk is open 9 to 5.")
+
+        fun main() {
+            val reply = hoursHandler(Message("hours"))
+            println(reply.kind)
+            println(reply.kind.code)
+            println(reply.text)
+        }
+  - prose: |
+      That is a complete handler. It has the right type, `(Message) -> Reply`, and a test can already be
+      written for it. Getting something of the right type compiling and passing its first test, however
+      trivial, is always the first move.
+
+      ## Step 2: read something from the input
+
+      Now make the reply depend on the message. Use a helper to get at the piece of input you need, supply a
+      default for when it is missing, and format the result.
+  - example:
+      title: A handler that uses an argument, with a default
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        // "greet name=tom lang=en" -> [(name, tom), (lang, en)]
+        fun arguments(text: String): List<Pair<String, String>> =
+            text.split(" ").drop(1).map { it.substringBefore("=") to it.substringAfter("=") }
+
+        fun argument(text: String, name: String): String? =
+            arguments(text).firstOrNull { it.first == name }?.second
+
+        fun greetHandler(message: Message): Reply {
+            val name = argument(message.text, "name") ?: "there"
+            return Reply(Kind.ANSWER, "Good morning, ${name.replaceFirstChar { it.uppercase() }}.")
+        }
+
+        fun main() {
+            println(greetHandler(Message("greet name=tom")).text)
+            println(greetHandler(Message("greet")).text)
+        }
+  - prose: |
+      Three habits are on show here, and all three carry over directly.
+
+      - **Reuse the parsing functions.** The handler does not take the string apart itself; it calls the
+        function written earlier for that job.
+      - **Decide the missing case explicitly.** `?:` gives the default in one place.
+      - **Keep the handler's type fixed.** However much it does inside, it still takes one `Message` and
+        returns one `Reply`.
+
+      ## Step 3: more than one outcome
+
+      A handler may return different kinds of reply. The choice is an `if` or a `when` whose branches are
+      `Reply` values.
+  - example:
+      title: A handler with two outcomes
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun resetHandler(message: Message): Reply =
+            if (message.sender.isEmpty()) Reply(Kind.REFUSED)
+            else Reply(Kind.ANSWER, "Password reset link sent to ${message.sender}.")
+
+        fun main() {
+            println(resetHandler(Message("reset")))
+            println(resetHandler(Message("reset", "tom@example.org")))
+        }
+  - haskell: |
+      A handler is a function `Message -> Reply`. The data class constructors are ordinary record
+      constructors, and the default argument on `sender` stands in for writing two constructors or a `Maybe`.
+
+      ```haskell
+      greetHandler :: Message -> Reply
+      greetHandler m = Reply Answer ("Good morning, " ++ capitalise name ++ ".")
+        where name = fromMaybe "there" (lookup "name" (arguments (text m)))
+      ```
+  - check:
+      id: skill-handler-c1
+      type: mc
+      title: The type of a handler
+      prompt: "Which of these is a handler in the chat-bot sense?"
+      options:
+        - "`fun a(text: String): Reply`"
+        - "`fun b(message: Message): Reply`"
+        - "`fun c(message: Message): String`"
+        - "`fun d(message: Message, name: String): Reply`"
+      answer: 1
+      explanation: "A handler takes exactly one `Message` and returns a `Reply`. The others have a different parameter list or result type, so they could not be used where a `(Message) -> Reply` is expected."
+  - check:
+      id: skill-handler-c2
+      type: predict
+      title: Default sender
+      prompt: "`Message` and `Reply` are as defined in the lesson."
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun whoHandler(message: Message): Reply {
+            val who = if (message.sender.isEmpty()) "anonymous" else message.sender
+            return Reply(Kind.ANSWER, "You are $who")
+        }
+
+        fun main() {
+            println(whoHandler(Message("who")).text)
+            println(whoHandler(Message("who", "ada")).text)
+            println(whoHandler(Message("who")).kind.code)
+        }
+      expected: |
+        You are anonymous
+        You are ada
+        1
+      explanation: "When the second constructor argument is left out, `sender` is the empty string."

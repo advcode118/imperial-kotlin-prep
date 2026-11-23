@@ -1,0 +1,230 @@
+- id: s-extension
+  type: write
+  title: File extension
+  lesson: strings
+  prompt: "Write `extension(file)`, which returns the text after the **last** dot in a file name. If there is no dot, return the empty string."
+  starter: |
+    fun extension(file: String): String = TODO()
+  solution: |
+    fun extension(file: String): String = file.substringAfterLast(".", "")
+  tests:
+    - { name: "Main.kt", actual: 'extension("Main.kt")', expected: '"kt"' }
+    - { name: "two dots", actual: 'extension("backup.tar.gz")', expected: '"gz"' }
+    - { name: "no dot", actual: 'extension("Makefile")', expected: '""' }
+  explanation: "The second argument of `substringAfterLast` is what to return when the delimiter is missing. Without it you would get the whole file name back."
+
+- id: s-username
+  type: write
+  title: Parts of an email address
+  lesson: strings
+  prompt: "An address looks like `user@domain`. Write `user(address)` and `domain(address)`."
+  starter: |
+    fun user(address: String): String = TODO()
+
+    fun domain(address: String): String = TODO()
+  solution: |
+    fun user(address: String): String = address.substringBefore("@")
+
+    fun domain(address: String): String = address.substringAfter("@")
+  tests:
+    - { name: "user", actual: 'user("tom@imperial.ac.uk")', expected: '"tom"' }
+    - { name: "domain", actual: 'domain("tom@imperial.ac.uk")', expected: '"imperial.ac.uk"' }
+    - { name: "user with a dot", actual: 'user("t.smith@example.org")', expected: '"t.smith"' }
+    - { name: "short domain", actual: 'domain("a@b")', expected: '"b"' }
+  explanation: "One cut each. With `indexOf` it would be `address.substring(0, address.indexOf(\"@\"))`, which is longer and breaks when there is no `@`."
+
+- id: s-missing-delimiter
+  type: predict
+  title: When the delimiter is absent
+  lesson: strings
+  prompt: "None of these strings contains a `#`."
+  code: |
+    fun main() {
+        val s = "notes.txt"
+        println(s.substringBefore("#"))
+        println(s.substringAfter("#"))
+        println(s.substringAfter("#", "none"))
+        println(s.indexOf("#"))
+    }
+  expected: |
+    notes.txt
+    notes.txt
+    none
+    -1
+  explanation: "Both `substringBefore` and `substringAfter` fall back to the whole string unless you pass a second argument. `indexOf` signals absence with -1."
+
+- id: s-capitalise
+  type: write
+  title: Capitalise a word
+  lesson: strings
+  prompt: "Write `capitalise(word)`, which returns the word with its first letter in upper case and the rest unchanged. Do not use the deprecated `capitalize()`."
+  starter: |
+    fun capitalise(word: String): String = TODO()
+  solution: |
+    fun capitalise(word: String): String = word.replaceFirstChar { it.uppercase() }
+  tests:
+    - { name: "fred", actual: 'capitalise("fred")', expected: '"Fred"' }
+    - { name: "already capitalised", actual: 'capitalise("Ada")', expected: '"Ada"' }
+    - { name: "rest unchanged", actual: 'capitalise("mcDonald")', expected: '"McDonald"' }
+    - { name: "empty string", actual: 'capitalise("")', expected: '""' }
+  explanation: "`replaceFirstChar` copes with the empty string for you. `word.substring(0, 1).uppercase() + word.substring(1)` also works for non-empty words but throws on `\"\"`."
+
+- id: s-first-or-null
+  type: fill
+  title: First match or nothing
+  lesson: nullability
+  prompt: "Fill the blank with a list operation so the program prints `null`."
+  code: |
+    fun main() {
+        val ports = listOf(80, 443, 8080)
+        println(ports.____ { it > 9000 })
+    }
+  accepted: ["firstOrNull", "find", "lastOrNull", "findLast", "singleOrNull"]
+  expectedOutput: "null"
+  explanation: "`firstOrNull` (or its synonym `find`) returns `null` when no element satisfies the predicate. `first` would throw instead."
+
+- id: s-lookup
+  type: write
+  title: Look up a key
+  lesson: pairs
+  prompt: "Write `lookup(table, key)`, which returns the value paired with `key` in a list of pairs, or `null` if the key is not present. If the key occurs more than once, return the first."
+  starter: |
+    fun lookup(table: List<Pair<String, Int>>, key: String): Int? = TODO()
+  solution: |
+    fun lookup(table: List<Pair<String, Int>>, key: String): Int? =
+        table.firstOrNull { it.first == key }?.second
+  tests:
+    - { name: "present", actual: 'lookup(listOf("a" to 1, "b" to 2), "b")', expected: "2" }
+    - { name: "absent", actual: 'lookup(listOf("a" to 1), "z")', expected: "null" }
+    - { name: "first of duplicates", actual: 'lookup(listOf("a" to 1, "a" to 9), "a")', expected: "1" }
+    - { name: "empty table", actual: 'lookup(emptyList(), "a")', expected: "null" }
+  explanation: "`firstOrNull` gives a `Pair?`; the safe call takes its second component if there is one. This is Haskell's `lookup`."
+
+- id: s-parse-entry
+  type: write
+  title: One entry to one pair
+  lesson: pairs
+  prompt: "Write `parseEntry`, which turns a string of the form `name=value` into a pair. Only the first `=` separates the name from the value: `parseEntry(\"expr=a=b\")` is `(\"expr\", \"a=b\")`."
+  starter: |
+    fun parseEntry(entry: String): Pair<String, String> = TODO()
+  solution: |
+    fun parseEntry(entry: String): Pair<String, String> =
+        entry.substringBefore("=") to entry.substringAfter("=")
+  tests:
+    - { name: "simple", actual: 'parseEntry("colour=teal")', expected: '"colour" to "teal"' }
+    - { name: "empty value", actual: 'parseEntry("colour=")', expected: '"colour" to ""' }
+    - { name: "value containing =", actual: 'parseEntry("expr=a=b")', expected: '"expr" to "a=b"' }
+  explanation: "`substringBefore`/`substringAfter` cut at the first `=`. With `split` you would need `split(\"=\", limit = 2)` to keep the value whole."
+
+- id: s-function-type
+  type: mc
+  title: The type of a function
+  lesson: function-types
+  prompt: "What is the type of `fun describe(n: Int, unit: String): String`?"
+  options:
+    - "`(Int) -> (String) -> String`"
+    - "`(Int, String) -> String`"
+    - "`Int -> String -> String`"
+    - "`(Int, String, String)`"
+  answer: 1
+  explanation: "Parameter types in parentheses, in order, then the result type. Kotlin functions are not curried."
+
+- id: s-join-fold
+  type: predict
+  title: Joining and folding
+  lesson: lists
+  prompt: "Two ways of reducing a list to one value."
+  code: |
+    fun main() {
+        val xs = listOf("a", "b", "c")
+        println(xs.joinToString("&"))
+        println(xs.joinToString("") { it.uppercase() })
+        println(xs.fold(0) { acc, s -> acc + s.length })
+        println(xs.fold("") { acc, s -> acc + s + s })
+    }
+  expected: |
+    a&b&c
+    ABC
+    3
+    aabbcc
+  explanation: "`joinToString` puts the separator between elements, optionally transforming each first. `fold` threads an accumulator from the left."
+
+- id: s-grade
+  type: write
+  title: Classify with when
+  lesson: if-when
+  prompt: "Write `band(mark)` using `when`. Marks of 70 and above are `\"A\"`, 60–69 `\"B\"`, 50–59 `\"C\"`, 40–49 `\"D\"`, and anything lower `\"F\"`."
+  starter: |
+    fun band(mark: Int): String = TODO()
+  solution: |
+    fun band(mark: Int): String = when {
+        mark >= 70 -> "A"
+        mark >= 60 -> "B"
+        mark >= 50 -> "C"
+        mark >= 40 -> "D"
+        else -> "F"
+    }
+  tests:
+    - { name: "85", actual: "band(85)", expected: '"A"' }
+    - { name: "70 (boundary)", actual: "band(70)", expected: '"A"' }
+    - { name: "69", actual: "band(69)", expected: '"B"' }
+    - { name: "50", actual: "band(50)", expected: '"C"' }
+    - { name: "40", actual: "band(40)", expected: '"D"' }
+    - { name: "0", actual: "band(0)", expected: '"F"' }
+  explanation: "A subject-less `when` tries the conditions in order, so each branch only needs the lower bound."
+
+- id: s-reference
+  type: fill
+  title: Naming a function as a value
+  lesson: function-references
+  prompt: "Fill the blank so the existing function is passed to `map` and the program prints `[1, 4, 9]`."
+  code: |
+    fun square(x: Int): Int = x * x
+
+    fun main() {
+        println(listOf(1, 2, 3).map(____))
+    }
+  accepted: ["::square", "{ square(it) }", "{ x -> square(x) }"]
+  expectedOutput: "[1, 4, 9]"
+  explanation: "`::square` turns the declared function into a value of type `(Int) -> Int`."
+
+- id: s-label
+  type: write
+  title: A data class with a default
+  lesson: classes
+  prompt: "`Product` is given. Write `label(product)`: it returns the name alone when the product has no note (`\"Tea\"`), and the name followed by the note in parentheses when it has one (`\"Tea (decaf)\"`)."
+  starter: |
+    data class Product(val name: String, val note: String = "")
+
+    fun label(product: Product): String = TODO()
+  solution: |
+    data class Product(val name: String, val note: String = "")
+
+    fun label(product: Product): String =
+        if (product.note.isEmpty()) product.name else "${product.name} (${product.note})"
+  tests:
+    - { name: "no note", actual: 'label(Product("Tea"))', expected: '"Tea"' }
+    - { name: "with note", actual: 'label(Product("Tea", "decaf"))', expected: '"Tea (decaf)"' }
+    - { name: "explicit empty note", actual: 'label(Product("Cake", ""))', expected: '"Cake"' }
+  explanation: "The default argument means an absent note is the empty string, so one `isEmpty()` test covers both ways of constructing a product without a note."
+
+- id: s-named-args
+  type: predict
+  title: Default and named arguments
+  lesson: functions
+  prompt: "Decide which parameter each argument binds to."
+  code: |
+    fun box(text: String, left: String = "[", right: String = "]"): String = left + text + right
+
+    fun main() {
+        println(box("a"))
+        println(box("a", "("))
+        println(box("a", right = ")"))
+        println(box(right = ">", left = "<", text = "a"))
+    }
+  expected: |
+    [a]
+    (a]
+    [a)
+    <a>
+  explanation: "Positional arguments fill parameters left to right. A named argument sets exactly the parameter named, and the others keep their defaults."

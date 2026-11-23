@@ -1,0 +1,337 @@
+- id: p-file-path
+  type: write
+  title: Take a file reference apart
+  lesson: skill-decomposing
+  prompt: |
+    A file reference has the layout `drive:/folder/.../name.ext`, for example `home:/notes/week1/todo.txt`.
+
+    Write three functions: `drive` returns the part before the colon; `fileName` returns the last segment (`todo.txt`); `folder` returns everything between the colon and the last slash (`/notes/week1`). A file directly on the drive, `home:/todo.txt`, has the empty string as its folder.
+  starter: |
+    fun drive(ref: String): String = TODO()
+
+    fun fileName(ref: String): String = TODO()
+
+    fun folder(ref: String): String = TODO()
+  solution: |
+    fun drive(ref: String): String = ref.substringBefore(":")
+
+    fun fileName(ref: String): String = ref.substringAfterLast("/")
+
+    fun folder(ref: String): String = ref.substringAfter(":").substringBeforeLast("/")
+  tests:
+    - { name: "drive", actual: 'drive("home:/notes/week1/todo.txt")', expected: '"home"' }
+    - { name: "fileName", actual: 'fileName("home:/notes/week1/todo.txt")', expected: '"todo.txt"' }
+    - { name: "folder", actual: 'folder("home:/notes/week1/todo.txt")', expected: '"/notes/week1"' }
+    - { name: "folder of a top-level file", actual: 'folder("usb:/cv.pdf")', expected: '""' }
+    - { name: "fileName of a top-level file", actual: 'fileName("usb:/cv.pdf")', expected: '"cv.pdf"' }
+    - { name: "drive with another name", actual: 'drive("usb:/cv.pdf")', expected: '"usb"' }
+  explanation: "For each component, name the delimiter that starts it and the one that ends it, then cut. `folder` needs two cuts: after the first colon, before the last slash."
+
+- id: p-options
+  type: write
+  title: Command-line options
+  lesson: skill-decomposing
+  prompt: |
+    A command looks like `build --target=jvm --mode=release`: a command word, then zero or more options of the form `--name=value`, separated by single spaces.
+
+    Write `options(command)`, which returns the options as a list of `(name, value)` pairs without the leading dashes. A command with no options gives an empty list.
+  starter: |
+    fun options(command: String): List<Pair<String, String>> = TODO()
+  solution: |
+    fun options(command: String): List<Pair<String, String>> =
+        command.split(" ").drop(1).map { option ->
+            option.removePrefix("--").substringBefore("=") to option.substringAfter("=")
+        }
+  tests:
+    - { name: "two options", actual: 'options("build --target=jvm --mode=release")', expected: 'listOf("target" to "jvm", "mode" to "release")' }
+    - { name: "one option", actual: 'options("test --filter=Parser")', expected: 'listOf("filter" to "Parser")' }
+    - { name: "no options", actual: 'options("clean")', expected: "emptyList<Pair<String, String>>()" }
+    - { name: "value containing =", actual: 'options("run --arg=x=1")', expected: 'listOf("arg" to "x=1")' }
+  explanation: "Split at spaces, discard the command word with `drop(1)`, and turn each remaining piece into a pair. Because the command word is always present, `drop(1)` of a command without options is naturally the empty list."
+
+- id: p-option-default
+  type: write
+  title: One option, with a default
+  lesson: nullability
+  prompt: |
+    `options` from the previous question is given. Write `option(command, name, default)`, which returns the value of the named option, or `default` when the command does not have it.
+  starter: |
+    fun options(command: String): List<Pair<String, String>> =
+        command.split(" ").drop(1).map { it.removePrefix("--").substringBefore("=") to it.substringAfter("=") }
+
+    fun option(command: String, name: String, default: String): String = TODO()
+  solution: |
+    fun options(command: String): List<Pair<String, String>> =
+        command.split(" ").drop(1).map { it.removePrefix("--").substringBefore("=") to it.substringAfter("=") }
+
+    fun option(command: String, name: String, default: String): String =
+        options(command).firstOrNull { it.first == name }?.second ?: default
+  tests:
+    - { name: "present", actual: 'option("build --mode=release", "mode", "debug")', expected: '"release"' }
+    - { name: "absent", actual: 'option("build --target=jvm", "mode", "debug")', expected: '"debug"' }
+    - { name: "no options at all", actual: 'option("build", "mode", "debug")', expected: '"debug"' }
+    - { name: "second option", actual: 'option("build --a=1 --b=2", "b", "0")', expected: '"2"' }
+  explanation: "Find the pair, take its value if it exists, otherwise fall back: `firstOrNull`, `?.`, `?:`."
+
+- id: p-ticket-handler
+  type: write
+  title: A handler
+  lesson: skill-handler
+  prompt: |
+    A ticket machine takes an `Order` and gives a `Receipt`. The order's `text` looks like `single to=york` or `return to=leeds`.
+
+    Write `singleHandler(order)`. It returns a receipt with outcome `ISSUED` and the text `Single to York`, taking the destination from the `to` argument and capitalising it. If there is no `to` argument, the destination is `Anywhere`. The helper `argument` is given.
+  starter: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    // argument("single to=york", "to") == "york"; null if the argument is absent
+    fun argument(text: String, name: String): String? =
+        text.split(" ").drop(1).firstOrNull { it.substringBefore("=") == name }?.substringAfter("=")
+
+    fun singleHandler(order: Order): Receipt = TODO()
+  solution: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    fun argument(text: String, name: String): String? =
+        text.split(" ").drop(1).firstOrNull { it.substringBefore("=") == name }?.substringAfter("=")
+
+    fun singleHandler(order: Order): Receipt {
+        val destination = argument(order.text, "to") ?: "anywhere"
+        return Receipt(Outcome.ISSUED, "Single to ${destination.replaceFirstChar { it.uppercase() }}")
+    }
+  tests:
+    - { name: "destination is capitalised", actual: 'singleHandler(Order("single to=york"))', expected: 'Receipt(Outcome.ISSUED, "Single to York")' }
+    - { name: "another destination", actual: 'singleHandler(Order("single to=leeds")).text', expected: '"Single to Leeds"' }
+    - { name: "no destination", actual: 'singleHandler(Order("single"))', expected: 'Receipt(Outcome.ISSUED, "Single to Anywhere")' }
+    - { name: "outcome code", actual: 'singleHandler(Order("single to=bath")).outcome.code', expected: "0" }
+  explanation: "Read the argument with the helper, default it with `?:`, format the text, and build the `Receipt`. The handler's type stays `(Order) -> Receipt`."
+
+- id: p-ticket-router
+  type: write
+  title: A router with a fallback
+  lesson: skill-router
+  prompt: |
+    Two handlers are given. Write `machine(order)`, which looks at the **first word** of the order's text: `single` goes to `singleHandler`, `return` to `returnHandler`, and `help` gets a receipt with outcome `ISSUED` and the text `single, return`. Anything else gets a receipt with outcome `NO_SUCH_TICKET` and empty text.
+  starter: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    fun singleHandler(order: Order): Receipt = Receipt(Outcome.ISSUED, "Single")
+    fun returnHandler(order: Order): Receipt = Receipt(Outcome.ISSUED, "Return")
+
+    fun machine(order: Order): Receipt = TODO()
+  solution: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    fun singleHandler(order: Order): Receipt = Receipt(Outcome.ISSUED, "Single")
+    fun returnHandler(order: Order): Receipt = Receipt(Outcome.ISSUED, "Return")
+
+    fun machine(order: Order): Receipt = when (order.text.substringBefore(" ")) {
+        "single" -> singleHandler(order)
+        "return" -> returnHandler(order)
+        "help" -> Receipt(Outcome.ISSUED, "single, return")
+        else -> Receipt(Outcome.NO_SUCH_TICKET)
+    }
+  tests:
+    - { name: "single", actual: 'machine(Order("single"))', expected: 'Receipt(Outcome.ISSUED, "Single")' }
+    - { name: "return with arguments", actual: 'machine(Order("return to=york"))', expected: 'Receipt(Outcome.ISSUED, "Return")' }
+    - { name: "help", actual: 'machine(Order("help")).text', expected: '"single, return"' }
+    - { name: "unknown ticket: outcome", actual: 'machine(Order("season")).outcome', expected: "Outcome.NO_SUCH_TICKET" }
+    - { name: "unknown ticket: empty text", actual: 'machine(Order("season")).text', expected: '""' }
+    - { name: "prefix is not a match", actual: 'machine(Order("singles")).outcome', expected: "Outcome.NO_SUCH_TICKET" }
+  explanation: "A `when` on the key, one branch per route, and an `else` that returns the not-found value. The key is the first word, so arguments do not disturb the routing."
+
+- id: p-fallback-mc
+  type: mc
+  title: What should a router do with an unknown key?
+  lesson: skill-router
+  prompt: "A router receives a key that no route matches. In the style used this week, what should it do?"
+  options:
+    - "Throw an exception such as `IllegalArgumentException`."
+    - "Return `null`."
+    - "Return an ordinary response whose status says nothing was found."
+    - "Call the first handler in the list as a default."
+  answer: 2
+  explanation: "The router's type promises a response for every request. \"Not found\" is one of the possible responses, expressed through the status, so callers and tests handle it like any other."
+
+- id: p-build-machine
+  type: write
+  title: Routes as data
+  lesson: skill-routes-as-data
+  prompt: |
+    Write `buildMachine(routes)`. It takes a list of `(first word, handler)` pairs and **returns a `Seller`**: a function which, given an order, calls the handler whose key equals the first word of the order's text, or returns `Receipt(Outcome.NO_SUCH_TICKET)` if no key matches.
+  starter: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun buildMachine(routes: List<Pair<String, Seller>>): Seller = TODO()
+  solution: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun buildMachine(routes: List<Pair<String, Seller>>): Seller = { order ->
+        val route = routes.firstOrNull { it.first == order.text.substringBefore(" ") }
+        if (route != null) route.second(order) else Receipt(Outcome.NO_SUCH_TICKET)
+    }
+  support: |
+    fun dayHandler__(order: Order): Receipt = Receipt(Outcome.ISSUED, "Day pass")
+    val testRoutes__: List<Pair<String, Seller>> = listOf(
+        "day" to ::dayHandler__,
+        "echo" to { o -> Receipt(Outcome.ISSUED, o.text) },
+    )
+  tests:
+    - { name: "routes to a function reference", actual: 'buildMachine(testRoutes__)(Order("day"))', expected: 'Receipt(Outcome.ISSUED, "Day pass")' }
+    - { name: "routes to a lambda, passing the whole order", actual: 'buildMachine(testRoutes__)(Order("echo a=1"))', expected: 'Receipt(Outcome.ISSUED, "echo a=1")' }
+    - { name: "unknown key", actual: 'buildMachine(testRoutes__)(Order("week"))', expected: "Receipt(Outcome.NO_SUCH_TICKET)" }
+    - { name: "empty table", actual: 'buildMachine(emptyList())(Order("day")).outcome', expected: "Outcome.NO_SUCH_TICKET" }
+    - { name: "first matching route wins", actual: 'buildMachine(listOf<Pair<String, Seller>>("a" to { Receipt(Outcome.ISSUED, "1") }, "a" to { Receipt(Outcome.ISSUED, "2") }))(Order("a")).text', expected: '"1"' }
+  explanation: "The function returns a lambda that closes over `routes`. Nothing is searched until the returned `Seller` is called with an order."
+
+- id: p-route-table-fill
+  type: fill
+  title: Building the table
+  lesson: skill-routes-as-data
+  prompt: "Fill the blank so that `\"day\"` is routed to the existing function `dayHandler`, and the program prints `Day pass`."
+  code: |
+    data class Order(val text: String)
+    data class Receipt(val text: String)
+    typealias Seller = (Order) -> Receipt
+
+    fun dayHandler(order: Order): Receipt = Receipt("Day pass")
+
+    val routes: List<Pair<String, Seller>> = listOf(
+        "day" to ____,
+        "week" to { Receipt("Week pass") },
+    )
+
+    fun main() {
+        println(routes[0].second(Order("day")).text)
+    }
+  accepted: ["::dayHandler", "{ dayHandler(it) }", "{ order -> dayHandler(order) }"]
+  expectedOutput: "Day pass"
+  explanation: "A function declared with `fun` is referred to as a value with `::`. A lambda that forwards to it is equivalent but longer."
+
+- id: p-require-card
+  type: write
+  title: A filter that refuses
+  lesson: skill-filter
+  prompt: |
+    Write the filter `requireCard(card, wrapped)`. It returns a `Seller` which, given an order, checks whether the order's `card` equals the required one. If it does, the order is passed to `wrapped` and its receipt returned. If not, the result is `Receipt(Outcome.DECLINED)` and `wrapped` must **not** be called.
+  starter: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun requireCard(card: String, wrapped: Seller): Seller = TODO()
+  solution: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun requireCard(card: String, wrapped: Seller): Seller = { order ->
+        if (order.card == card) wrapped(order) else Receipt(Outcome.DECLINED)
+    }
+  support: |
+    var calls__ = 0
+    val counting__: Seller = { o -> calls__++; Receipt(Outcome.ISSUED, "ok ${o.text}") }
+    fun callsAfter__(order: Order): Int { calls__ = 0; requireCard("staff", counting__)(order); return calls__ }
+  tests:
+    - { name: "right card: passed through", actual: 'requireCard("staff", counting__)(Order("day", "staff"))', expected: 'Receipt(Outcome.ISSUED, "ok day")' }
+    - { name: "wrong card: declined", actual: 'requireCard("staff", counting__)(Order("day", "guest"))', expected: "Receipt(Outcome.DECLINED)" }
+    - { name: "no card: declined", actual: 'requireCard("staff", counting__)(Order("day")).outcome', expected: "Outcome.DECLINED" }
+    - { name: "wrapped is called once when allowed", actual: 'callsAfter__(Order("day", "staff"))', expected: "1" }
+    - { name: "wrapped is not called when declined", actual: 'callsAfter__(Order("day", "guest"))', expected: "0" }
+  explanation: "The result is a lambda with the same type as the handler it wraps. Inside, one `if` decides between calling `wrapped` and returning the refusal."
+
+- id: p-filter-order
+  type: predict
+  title: Stacked filters
+  lesson: skill-filter
+  prompt: "Work out which wrapper sees the input first."
+  code: |
+    typealias Handler = (String) -> String
+
+    fun trace(log: MutableList<String>, name: String, wrapped: Handler): Handler = { s ->
+        log.add(name)
+        wrapped(s)
+    }
+
+    fun deny(word: String, wrapped: Handler): Handler = { s ->
+        if (s == word) "denied" else wrapped(s)
+    }
+
+    fun main() {
+        val log = mutableListOf<String>()
+        val base: Handler = { "ok:$it" }
+        val h = trace(log, "outer", deny("x", trace(log, "inner", base)))
+
+        println(h("a"))
+        println(log)
+        log.clear()
+        println(h("x"))
+        println(log)
+    }
+  expected: |
+    ok:a
+    [outer, inner]
+    denied
+    [outer]
+  explanation: "The outermost wrapper runs first. For `x` the `deny` filter answers by itself, so neither the inner trace nor `base` is reached."
+
+- id: p-counting-filter
+  type: write
+  title: A filter with a side job
+  lesson: skill-filter
+  prompt: |
+    Write the filter `recorded(log, wrapped)`. The returned `Seller` always calls `wrapped`, appends one line to `log` of the form `<order text> -> <outcome>` (for example `day -> ISSUED`), and returns the receipt unchanged.
+  starter: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun recorded(log: MutableList<String>, wrapped: Seller): Seller = TODO()
+  solution: |
+    enum class Outcome(val code: Int) { ISSUED(0), DECLINED(1), NO_SUCH_TICKET(2) }
+    data class Order(val text: String, val card: String = "")
+    data class Receipt(val outcome: Outcome, val text: String = "")
+
+    typealias Seller = (Order) -> Receipt
+
+    fun recorded(log: MutableList<String>, wrapped: Seller): Seller = { order ->
+        val receipt = wrapped(order)
+        log.add("${order.text} -> ${receipt.outcome}")
+        receipt
+    }
+  support: |
+    val issue__: Seller = { o -> Receipt(Outcome.ISSUED, o.text.uppercase()) }
+    val decline__: Seller = { Receipt(Outcome.DECLINED) }
+    fun logAfter__(vararg sellers: Seller): List<String> {
+        val log = mutableListOf<String>()
+        sellers.forEach { recorded(log, it)(Order("day")) }
+        return log
+    }
+  tests:
+    - { name: "receipt is returned unchanged", actual: 'recorded(mutableListOf(), issue__)(Order("day"))', expected: 'Receipt(Outcome.ISSUED, "DAY")' }
+    - { name: "one line per call", actual: "logAfter__(issue__)", expected: 'listOf("day -> ISSUED")' }
+    - { name: "records the outcome of the wrapped seller", actual: "logAfter__(decline__)", expected: 'listOf("day -> DECLINED")' }
+    - { name: "lines accumulate in order", actual: "logAfter__(issue__, decline__, issue__)", expected: 'listOf("day -> ISSUED", "day -> DECLINED", "day -> ISSUED")' }
+  explanation: "Call the wrapped handler first, because the log line needs its outcome; record; then return the receipt as the lambda's last expression."

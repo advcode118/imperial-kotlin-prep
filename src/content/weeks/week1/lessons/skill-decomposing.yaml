@@ -1,0 +1,150 @@
+title: Decomposing a structured string
+summary: "A method for taking apart a URL-like string one delimiter at a time, shown on mailto links."
+blocks:
+  - prose: |
+      Part 1 of the exercise asks for functions that each pull one component out of a URL. The technique is
+      the same for any string with a fixed layout, so this lesson works through a different one, a `mailto`
+      link, and leaves URLs for you:
+
+      ```text
+      mailto:tom.smith@imperial.ac.uk?subject=Lab&cc=ada@example.org
+      ```
+
+      It has a *scheme* (`mailto`), a *user* (`tom.smith`), a *domain* (`imperial.ac.uk`) and optional
+      *headers* after a question mark, each a `name=value` pair, separated by ampersands.
+
+      ## The method
+
+      1. Write the layout down with its delimiters marked: `scheme : user @ domain ? name = value & ...`.
+      2. For the component you want, find the delimiter that **ends** it and the one that **starts** it.
+      3. Cut away everything after the end, then everything before the start (or the other way round).
+         Each cut is one `substringBefore` or `substringAfter`.
+      4. Ask what happens when an optional delimiter is missing.
+
+      Work from the outside in, and give intermediate results names.
+  - example:
+      title: One component per function
+      code: |
+        fun schemeOf(link: String): String = link.substringBefore(":")
+
+        // Everything between the ":" and the "?" (if any).
+        fun address(link: String): String = link.substringAfter(":").substringBefore("?")
+
+        fun user(link: String): String = address(link).substringBefore("@")
+
+        fun domain(link: String): String = address(link).substringAfter("@")
+
+        fun main() {
+            val link = "mailto:tom.smith@imperial.ac.uk?subject=Lab&cc=ada@example.org"
+            println(schemeOf(link))
+            println(address(link))
+            println(user(link))
+            println(domain(link))
+            println(domain("mailto:ada@example.org"))   // no "?": still fine
+        }
+  - prose: |
+      Notice the order of cuts in `address`. The headers may themselves contain `@` and `:`, so the `?` cut is
+      made before anything looks for `@`. Removing the optional tail first is nearly always the safe order.
+
+      Notice also why the link with no `?` still works: `substringBefore("?")` returns the whole string when
+      there is no `?`, which is exactly what is wanted here.
+
+      ## The key–value part
+
+      The headers need three steps: isolate the text after `?`, split it into entries at `&`, and split each
+      entry into a name and a value at `=`. The result is a `List<Pair<String, String>>`.
+
+      The missing-delimiter question matters here. `substringAfter("?")` on a link with no `?` returns the
+      *whole link*, and `"".split("&")` returns a list containing one empty string. Either would give a wrong
+      answer for a link with no headers, so that case is handled first.
+  - example:
+      title: Key–value pairs into a list of pairs
+      code: |
+        fun headers(link: String): List<Pair<String, String>> {
+            if (!link.contains("?")) return emptyList()
+            val text = link.substringAfter("?")
+            return text.split("&").map { entry ->
+                entry.substringBefore("=") to entry.substringAfter("=")
+            }
+        }
+
+        fun main() {
+            println(headers("mailto:tom@example.org?subject=Lab&cc=ada@example.org"))
+            println(headers("mailto:tom@example.org?subject=Lab"))
+            println(headers("mailto:tom@example.org"))
+            println(headers("mailto:tom@example.org").isEmpty())
+        }
+  - prose: |
+      The lambda passed to `map` turns one entry such as `subject=Lab` into one pair. You could equally split
+      the entry and destructure it: `val (name, value) = entry.split("=")`.
+
+      Once the headers are a list of pairs, finding one by name is a `firstOrNull` on the list, with a default
+      for the case where it is absent.
+  - example:
+      title: Looking up one value
+      code: |
+        fun headers(link: String): List<Pair<String, String>> =
+            if (!link.contains("?")) emptyList()
+            else link.substringAfter("?").split("&").map { it.substringBefore("=") to it.substringAfter("=") }
+
+        fun header(link: String, name: String): String? =
+            headers(link).firstOrNull { it.first == name }?.second
+
+        fun main() {
+            val link = "mailto:tom@example.org?subject=Lab&cc=ada@example.org"
+            println(header(link, "cc"))
+            println(header(link, "bcc"))
+            println(header(link, "subject") ?: "(no subject)")
+            println(header("mailto:tom@example.org", "subject") ?: "(no subject)")
+        }
+  - note:
+      title: Applying this to a URL
+      md: |
+        A URL has the layout `scheme :// host / path ? name = value & ...`. Go through the four steps of the
+        method for each component the spec asks for, and write the cases down before you write code: a URL with
+        no query string, one with a single parameter, and one whose path is more than one segment long. The
+        [pre-PPT exercise](#/week/week1/pre-ppt) gives you URLs to practise on.
+  - check:
+      id: skill-decomposing-c1
+      type: predict
+      title: Order of cuts
+      prompt: "A shelf mark has the layout `floor/section:number`."
+      code: |
+        fun main() {
+            val mark = "3/maths:512.7"
+            println(mark.substringBefore("/"))
+            println(mark.substringAfter("/").substringBefore(":"))
+            println(mark.substringAfter(":"))
+            println(mark.substringAfter(":").substringBefore("."))
+        }
+      expected: |
+        3
+        maths
+        512.7
+        512
+      explanation: "Each line isolates a component by cutting away what comes before its starting delimiter and what comes after its ending one."
+  - check:
+      id: skill-decomposing-c2
+      type: mc
+      title: The missing tail
+      prompt: "What does `\"mailto:ada@example.org\".substringAfter(\"?\").split(\"&\")` evaluate to?"
+      options:
+        - "An empty list"
+        - "`[\"\"]`"
+        - "`[\"mailto:ada@example.org\"]`"
+        - "It throws an exception"
+      answer: 2
+      explanation: "There is no `?`, so `substringAfter` returns the whole string, and splitting that at `&` (also absent) gives one piece. This is why the no-headers case is checked first."
+  - check:
+      id: skill-decomposing-c3
+      type: fill
+      title: Entry to pair
+      prompt: "Fill the blank so each `name=value` entry becomes a pair and the program prints `[(a, 1), (b, 2)]`."
+      code: |
+        fun main() {
+            val entries = "a=1&b=2".split("&")
+            println(entries.map { it.substringBefore("=") to ____ })
+        }
+      accepted: ["it.substringAfter(\"=\")", "it.split(\"=\")[1]", "it.substringAfterLast(\"=\")"]
+      expectedOutput: "[(a, 1), (b, 2)]"
+      explanation: "The value is the text after the `=` in the entry."

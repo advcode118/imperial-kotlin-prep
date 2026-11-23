@@ -1,0 +1,146 @@
+intro: |
+  How to work through the lab itself. Sections marked **From the spec** restate what the lab specification
+  says. Sections marked **General advice** are suggestions from this site, not Imperial policy; if anything
+  here disagrees with the specification, your lecturers or your tutors, they are right.
+sections:
+  - id: getting-the-code
+    title: Getting the skeleton
+    source: spec
+    md: |
+      The skeleton is in a GitLab repository created for you. Clone it, putting your own username in place
+      of `<username>`:
+
+      ```bash
+      git clone https://gitlab.doc.ic.ac.uk/lab2627_autumn/kotlinwebserver_<username>.git
+      ```
+
+      Work on it in IntelliJ IDEA. Kotlin runs on the JVM, so you also need a Java Development Kit (JDK).
+      The course material links to instructions for setting up IntelliJ with a JDK, opening the provided
+      files, and running the tests.
+  - id: build-script
+    title: Run build.sh before you push
+    source: spec
+    md: |
+      The repository includes a script, `build.sh`, to run on your own machine before submitting. It
+      compiles your code, runs your tests and checks your code style.
+
+      ```bash
+      ./build.sh
+      ```
+  - id: todos-and-tests
+    title: Replace the TODO()s, one test at a time
+    source: spec
+    md: |
+      `WebServer.kt` contains `TODO()` placeholders for you to replace with implementations.
+      `WebServerTest.kt` contains tests for the functions, most of them commented out to begin with. The
+      specification's instruction is to uncomment the tests one by one, implementing what each needs until
+      everything passes, and to add further tests of your own in the same style where you think they are
+      needed.
+
+      For the extension on configurable routing, one of the tests is incomplete: you uncomment it and
+      finish the code inside the test method yourself.
+  - id: submitting
+    title: Submitting
+    source: spec
+    md: |
+      Use LabTS to test and submit your code, as for previous exercises. LabTS works from what you have
+      pushed to your GitLab repository.
+  - id: grading
+    title: How lab exercises are graded
+    source: spec
+    md: |
+      The specification gives the general scheme for laboratory exercises:
+
+      | Grade | Description |
+      | --- | --- |
+      | F – E | Very little to no attempt made. Submissions that fail to compile cannot score above an E. |
+      | D – C | Implementations of most functions attempted; solutions may not be correct, or may not have a good style. |
+      | B | Implementations of all functions attempted, and solutions are mostly correct. Code style is generally good. |
+      | A | There are no obvious deficiencies in the solution or the student's coding style. In addition, there is evidence of productive testing. |
+      | A* | As for an A, plus additional work beyond the basic spec, e.g. considering (and clearly commenting) interesting variations or extensions to the given functions, e.g. based on the student's own research. |
+
+      Three things follow directly from the table:
+
+      - **It must compile.** A submission that does not compile cannot score above an E, whatever else is
+        in it.
+      - **An A needs evidence of testing**, not only passing the provided tests.
+      - **An A\* needs work beyond the basic specification, clearly commented.** The specification's own
+        extensions (configurable routing, filters, further filters chained together) are the obvious place
+        to start.
+  - id: keep-compiling
+    title: Keep it compiling
+    source: advice
+    md: |
+      Because of the compile rule, treat "it compiles and the enabled tests pass" as the state you return
+      to every few minutes.
+
+      - A function you have not written yet should still have its `TODO()`. Code that calls `TODO()`
+        compiles; a half-written expression does not.
+      - Uncommenting a test for a function that does not exist yet breaks compilation of the *test file*.
+        Write the function's signature with a `TODO()` body first, then uncomment the test.
+      - If you are stuck on something near the deadline, put it back to a compiling state (even a
+        `TODO()`), make sure `./build.sh` succeeds, and push that.
+  - id: commit-often
+    title: Commit and push often
+    source: advice
+    md: |
+      Commit each time a new test passes, with a message that says what now works, and push regularly.
+      A pushed commit is a version you can submit and a place to go back to. Leave time before the
+      deadline to check on LabTS that your last push is the one that was tested.
+
+      ```bash
+      git add -A
+      git commit -m "Extract host and path from a URL"
+      git push
+      ```
+  - id: order-of-work
+    title: A sensible order of work
+    source: advice
+    md: |
+      1. Read `Http.kt` and the whole of `WebServerTest.kt` before writing anything. The tests tell you
+         the exact function names, argument orders and expected strings.
+      2. Do the URL functions first and get them right, including the no-query-string case. Everything
+         later calls them.
+      3. Write the simplest handler, then extend it.
+      4. Write the router with its not-found fallback.
+      5. Only then start the extensions. Parts 1 and 2 complete and tidy are worth more than a
+         half-finished extension that breaks the build.
+      6. Add your own tests as you go, not at the end: each time you wonder "what if the input is…",
+         that is a test.
+  - id: time
+    title: Time management
+    source: advice
+    md: |
+      The [pre-PPT exercise](#/week/week1/pre-ppt) is sized so that Parts 1 and 2 fit in two hours with a
+      timer running. If a function has taken twenty minutes without progress, leave its `TODO()` in place,
+      move to the next test, and come back. The lab sessions are the time to ask a demonstrator about
+      anything in the specification that is unclear.
+  - id: style
+    title: Style
+    source: advice
+    md: |
+      The grading scheme mentions style at every band from C upwards, and `build.sh` checks it. Without
+      knowing the exact rules the script applies, the conventions that the standard Kotlin style guide and
+      common linters agree on are a safe default:
+
+      - Four spaces of indentation, no tabs; no trailing spaces; one blank line between functions.
+      - Names in `camelCase` for functions and values, `PascalCase` for types.
+      - Spaces around operators and after commas and colons: `fun f(x: Int): Int = x + 1`.
+      - No unused variables or imports, and no commented-out code left behind (other than tests you have
+        not reached).
+      - Prefer `val` to `var`, and an expression body when the function is a single expression.
+      - Avoid deprecated functions such as `capitalize()`; IntelliJ strikes them through.
+      - Let IntelliJ reformat the file (*Code → Reformat Code*) before you commit, and read any warnings
+        it highlights.
+
+      If `build.sh` reports a style problem, its message names the file and line. Fix what it says and run
+      it again.
+  - id: testing-evidence
+    title: Showing productive testing
+    source: advice
+    md: |
+      The specification asks you to add tests "in the same style" where you feel they are needed. Useful
+      additions test behaviour the provided tests do not reach: a URL with no query string, with one
+      parameter, with a longer path; a request for a page that does not exist; a filter given the wrong
+      token and no token. A handful of well-chosen cases with descriptive names shows more than many
+      near-duplicates. See [Testing with kotlin.test](#/week/week1/lesson/testing).

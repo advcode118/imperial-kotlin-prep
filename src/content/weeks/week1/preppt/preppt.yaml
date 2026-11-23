@@ -1,0 +1,677 @@
+id: library-catalogue
+title: Library catalogue API
+subtitle: "A practice exercise with the same shape as this week's lab, in a different setting. Allow two hours."
+durationMinutes: 120
+
+preamble:
+  - title: Aims
+    md: |
+      - To practise defining and calling functions in Kotlin, and taking strings apart with the standard library.
+      - To use pairs, lists, data classes and an enum with a property.
+      - To treat functions as values: storing them in a list, passing them, and returning them.
+      - To rehearse the working method of a lab: one test at a time, always compiling.
+  - title: Introduction
+    md: |
+      A small public library wants to put its catalogue online. A program on the library's server receives
+      **requests**, each naming a page by its URL, and answers each with a **response**: a status saying how
+      it went and a body containing the text of the page. At its simplest the whole server is one function
+      from a request to a response. We will call a function of that shape a *handler*.
+
+      One server offers several pages, so it needs a way to pick the handler for each request. It does this
+      by looking at the URL. The URL can also carry extra information for the handler, such as which book
+      is being asked about.
+
+      In this exercise you will write the functions that take a URL apart, a few handlers for the library's
+      pages, and the code that chooses between them. In the extensions you will make the choice
+      configurable and add checks that can be wrapped around any handler.
+
+      This is a practice exercise written for this site. It is deliberately the same *kind* of program as
+      the lab, with different names, different pages and some different rules, so that doing it is
+      rehearsal and not a preview of the answers.
+  - title: Getting started
+    md: |
+      Everything you need is in the [workspace](#workspace) at the bottom of this page: the file you edit
+      (`Library.kt`), a provided file you only read (`Http.kt`), and the tests (`LibraryTest.kt`). You can
+      work entirely in the browser. If you would rather practise in IntelliJ, download the starter project
+      from the workspace; its README explains how to run the tests.
+
+      Only the first test is enabled to begin with. **Enable next test** is the equivalent of uncommenting
+      the next test in the file. The rhythm to practise is:
+
+      1. Enable one test and read it.
+      2. Run the tests and see it fail.
+      3. Write just enough code to make it pass.
+      4. Run *all* the enabled tests again.
+
+      Start the timer when you begin. Two hours is enough for Parts 1 and 2 with time to spare for an
+      extension; do not look at a worked solution for a part until you have attempted it.
+
+      `Http.kt` defines three types. You create a request from a URL, optionally with an API key, and a
+      response from a status and, optionally, a body:
+
+      ```kotlin
+      val request = Request("http://library.example.org/book?title=dune")
+      val withKey = Request("http://library.example.org/admin", "s3cret")
+      val response = Response(Status.OK, "Title: Dune")
+      val empty = Response(Status.NOT_FOUND)
+      ```
+
+      Their properties are read with a dot: `request.url`, `request.apiKey`, `response.status`,
+      `response.body`, and `response.status.code` for the number.
+
+parts:
+  - id: part-a
+    title: "Part 1: URLs"
+    kind: core
+    spec: |
+      A URL such as
+
+      ```text
+      https://library.example.org:8080/book?title=dune&format=audio
+      ```
+
+      is made of several components:
+
+      - The **protocol** comes before the `://`. Here it is `https`.
+      - The **server** is the name of the machine to contact: `library.example.org`.
+      - The server may be followed by a colon and a **port** number: `8080`. Most URLs leave the port out,
+        in which case it is 443 for the `https` protocol and 80 for anything else.
+      - The **resource** says which page is wanted. It starts at the first `/` after the server: `/book`.
+        A resource may have several segments, as in `/about/hours`.
+      - After a `?` come the **parameters**, written `name=value` and separated by `&`. The example has two:
+        `title` is `dune` and `format` is `audio`.
+
+      In `Library.kt`, replace the `TODO()`s to define these functions. Each takes a URL as a `String`.
+
+      - `protocol()` returns the protocol, without the colon or slashes.
+      - `server()` returns the server name, without any port.
+      - `port()` returns the port as an `Int`: the one written in the URL if there is one, otherwise the
+        default for the protocol.
+      - `resource()` returns the resource, without any parameters. A URL that stops after the server, such
+        as `http://library.example.org`, has the resource `/`.
+      - `parameters()` returns the parameters as a `List<Pair<String, String>>`, in the order they appear.
+        A URL with no parameters gives an empty list. A parameter written without a value (`?available`
+        or `?available=`) has the empty string as its value.
+      - `parameter()` also takes a name, and returns the value of the first parameter with that name, or
+        `null` if there is none.
+
+      You will want `substringBefore()`, `substringAfter()` and `split()`. Before writing each function, ask
+      what those methods return when the delimiter you are cutting at is **not there**.
+
+      The tests for this part are the first ten. Add cases of your own in your head or on paper: what should
+      each function return for a URL with a port *and* no resource? With a `?` but nothing after it?
+    solution: |
+      Work from the outside in. The protocol is everything before `://`.
+
+      ```kotlin
+      fun protocol(url: String): String = url.substringBefore("://")
+      ```
+
+      The server and the port live together between `://` and whatever comes next, which is a `/`, a `?`,
+      or the end of the string. A helper isolates that stretch once, so `server` and `port` stay short.
+      `substringBefore` returns the whole string when its delimiter is missing, which is exactly right here.
+
+      ```kotlin
+      private fun authority(url: String): String =
+          url.substringAfter("://").substringBefore("/").substringBefore("?")
+
+      fun server(url: String): String = authority(url).substringBefore(":")
+      ```
+
+      For the port, the missing-delimiter behaviour is *not* what we want: with no colon,
+      `substringAfter(":")` would return the server name. Passing a second argument says what to return
+      instead. `toIntOrNull()` then gives `null` for the empty string, and the Elvis operator supplies the
+      default.
+
+      ```kotlin
+      fun port(url: String): Int {
+          val explicit = authority(url).substringAfter(":", "").toIntOrNull()
+          return explicit ?: when (protocol(url)) {
+              "https" -> 443
+              else -> 80
+          }
+      }
+      ```
+
+      The resource starts at the first `/` after the protocol. Cut the parameters off first, since a
+      parameter value could itself contain a slash. If no slash is left, the resource is the root.
+
+      ```kotlin
+      fun resource(url: String): String {
+          val afterProtocol = url.substringAfter("://").substringBefore("?")
+          return if (afterProtocol.contains("/")) "/" + afterProtocol.substringAfter("/") else "/"
+      }
+      ```
+
+      For the parameters: isolate the query string, deal with the empty case, split into entries, and turn
+      each entry into a pair. The empty case needs its own line because `"".split("&")` is a list holding
+      one empty string, which would become the bogus pair `("", "")`.
+
+      ```kotlin
+      fun parameters(url: String): List<Pair<String, String>> {
+          val query = url.substringAfter("?", "")
+          if (query.isEmpty()) return emptyList()
+          return query.split("&").map { entry ->
+              entry.substringBefore("=") to entry.substringAfter("=", "")
+          }
+      }
+
+      fun parameter(url: String, name: String): String? =
+          parameters(url).firstOrNull { it.first == name }?.second
+      ```
+
+  - id: part-b
+    title: "Part 1: Handlers"
+    kind: core
+    spec: |
+      A handler takes a `Request` and returns a `Response`. Write three.
+
+      - `welcomeHandler()` ignores what is in the request and always returns a response with status `OK`
+        and the body `Welcome to the library`.
+      - `bookHandler()` reads the `title` parameter from the request's URL and returns status `OK` with a
+        body such as `Title: Dune`. The title is shown with its first letter in upper case, whatever case it
+        had in the URL. If the request has no `title` parameter, the body is `Title: Unknown`.
+      - `loanHandler()` reads two parameters. `member` is required and `days` is optional, defaulting
+        to 21. A request for `/loans?member=ada&days=7` gets status `OK` and the body
+        `Ada may borrow for 7 days`. If `member` is missing, the response has status `BAD_REQUEST` and an
+        empty body.
+
+      Use the functions from the previous section; a handler should not take the URL apart itself.
+      `capitalize()` is deprecated: look at `replaceFirstChar` instead.
+    solution: |
+      Start with the simplest handler. It has the right type and nothing else.
+
+      ```kotlin
+      fun welcomeHandler(request: Request): Response = Response(Status.OK, "Welcome to the library")
+      ```
+
+      `bookHandler` reads a parameter, supplies a default with `?:`, and formats. Capitalising is needed
+      twice in this file, so it gets a small helper.
+
+      ```kotlin
+      private fun capitalise(word: String): String = word.replaceFirstChar { it.uppercase() }
+
+      fun bookHandler(request: Request): Response {
+          val title = parameter(request.url, "title") ?: "unknown"
+          return Response(Status.OK, "Title: ${capitalise(title)}")
+      }
+      ```
+
+      `loanHandler` has two outcomes. The right-hand side of `?:` may be a `return`, which gives an early
+      exit for the missing-member case and leaves `member` as a non-null `String` afterwards.
+
+      ```kotlin
+      fun loanHandler(request: Request): Response {
+          val member = parameter(request.url, "member") ?: return Response(Status.BAD_REQUEST)
+          val days = parameter(request.url, "days") ?: "21"
+          return Response(Status.OK, "${capitalise(member)} may borrow for $days days")
+      }
+      ```
+
+      `Response(Status.BAD_REQUEST)` relies on the default argument for the body. An `if`/`else` on
+      `member == null` is just as good.
+
+  - id: part-c
+    title: "Part 2: Routing"
+    kind: core
+    spec: |
+      The library's site has several pages, each with its own handler. Choosing the handler from the URL's
+      resource is called *routing*. The mapping is:
+
+      ```text
+      /             =>  welcome page
+      /book         =>  book page
+      /loans        =>  loans page
+      /about/hours  =>  opening hours page
+      ```
+
+      Write `hoursHandler()`, which always returns status `OK` and the body `Open 9 to 5`.
+
+      Then write `route()`. It takes a `Request`, finds the handler for the resource in the request's URL,
+      passes the request to that handler, and returns the handler's response. If no handler matches the
+      resource, `route()` returns a response with status `NOT_FOUND` and an empty body.
+
+      Only the resource decides the route. The protocol, server, port and parameters do not.
+    solution: |
+      The router is a `when` on the resource. Each branch hands the *whole request* to a handler; the
+      `else` branch is the fallback, and is what makes the `when` usable as an expression.
+
+      ```kotlin
+      fun hoursHandler(request: Request): Response = Response(Status.OK, "Open 9 to 5")
+
+      fun route(request: Request): Response = when (resource(request.url)) {
+          "/" -> welcomeHandler(request)
+          "/book" -> bookHandler(request)
+          "/loans" -> loanHandler(request)
+          "/about/hours" -> hoursHandler(request)
+          else -> Response(Status.NOT_FOUND)
+      }
+      ```
+
+      Because `resource()` already strips the server and the parameters, the router gets the rule "only the
+      resource decides" for free. That is the benefit of having tested Part 1 properly.
+
+  - id: part-d
+    title: "Extension: configurable routing"
+    kind: extension
+    spec: |
+      This part and the next are optional. Nothing is provided in the starter file for them, so enabling
+      their tests before you have written the functions gives compile errors in the test file. That is
+      expected: read the test, then write what it needs.
+
+      In `route()` the table of pages and the code that searches it are tangled together. Separate them.
+
+      First give the type of a handler a name:
+
+      ```kotlin
+      typealias Handler = (Request) -> Response
+      ```
+
+      Your existing handler functions already fit this type.
+
+      Next, define a top-level value `libraryRoutes` of type `List<Pair<String, Handler>>` holding the same
+      four mappings as `route()`. Refer to your handler functions with `::`, and build the pairs with `to`.
+
+      Then write
+
+      ```kotlin
+      fun configureRoutes(routes: List<Pair<String, Handler>>): Handler
+      ```
+
+      `configureRoutes()` does not handle a request itself. It **returns a handler**. The returned handler,
+      when given a request, uses the first mapping whose resource matches the request's, and responds with
+      `NOT_FOUND` and an empty body if none does. So `configureRoutes(libraryRoutes)` should behave exactly
+      like `route()`, and you can build other sites by passing a different list, including one whose
+      handlers are lambdas.
+    solution: |
+      The alias and the table:
+
+      ```kotlin
+      typealias Handler = (Request) -> Response
+
+      val libraryRoutes: List<Pair<String, Handler>> = listOf(
+          "/" to ::welcomeHandler,
+          "/book" to ::bookHandler,
+          "/loans" to ::loanHandler,
+          "/about/hours" to ::hoursHandler,
+      )
+      ```
+
+      `configureRoutes` must return a function, so its body is a lambda. The lambda's parameter is the
+      request, which arrives later; `routes` is captured from the enclosing function.
+
+      ```kotlin
+      fun configureRoutes(routes: List<Pair<String, Handler>>): Handler = { request ->
+          val match = routes.firstOrNull { it.first == resource(request.url) }
+          if (match != null) match.second(request) else Response(Status.NOT_FOUND)
+      }
+      ```
+
+      `match` is a `Pair<String, Handler>?`. Its second component is the handler, which is then called with
+      the request. A more compact body, if you prefer it:
+
+      ```kotlin
+      routes.firstOrNull { it.first == resource(request.url) }?.second?.invoke(request)
+          ?: Response(Status.NOT_FOUND)
+      ```
+
+      In Haskell terms this is `configureRoutes :: [(String, Handler)] -> Handler`, which unfolds to
+      `[(String, Handler)] -> Request -> Response`: the lambda is the second arrow written out.
+
+  - id: part-e
+    title: "Extension: filters"
+    kind: extension
+    spec: |
+      Some pages should only be available to library staff, and some handlers make no sense without a
+      particular parameter. Rather than write those checks inside each handler, write them once as
+      *filters*: functions that take a handler and return a new handler with the check added in front.
+
+      Write
+
+      ```kotlin
+      fun requireKey(key: String, wrapped: Handler): Handler
+      ```
+
+      The handler it returns compares the request's `apiKey` with `key`. If they are equal, the request is
+      passed to `wrapped` and its response returned. If not, the response is `FORBIDDEN` with an empty
+      body, and `wrapped` is not called at all. Remember that a request made without an API key has the
+      empty string as its key.
+
+      Then write
+
+      ```kotlin
+      fun requireParam(name: String, wrapped: Handler): Handler
+      ```
+
+      The handler it returns passes the request on to `wrapped` only if the URL has a parameter with the
+      given name. Otherwise it responds with `BAD_REQUEST` and an empty body.
+
+      Because a filtered handler is still a `Handler`, filters can be nested, and a filtered handler can be
+      used in a route table:
+
+      ```kotlin
+      "/staff/rota" to requireKey("s3cret", ::rotaHandler)
+      ```
+
+      When filters are nested, the outer one is consulted first. Make sure you can predict the response
+      when both checks would fail.
+
+      If you have time, invent a filter of your own, for example one that records each request and the
+      status of its response in a `MutableList<String>`, and comment it to explain what it does.
+    solution: |
+      Both filters have the same skeleton: return a lambda that takes the request and decides whether to
+      call `wrapped`.
+
+      ```kotlin
+      fun requireKey(key: String, wrapped: Handler): Handler = { request ->
+          if (request.apiKey == key) wrapped(request) else Response(Status.FORBIDDEN)
+      }
+
+      fun requireParam(name: String, wrapped: Handler): Handler = { request ->
+          if (parameter(request.url, name) != null) wrapped(request) else Response(Status.BAD_REQUEST)
+      }
+      ```
+
+      Nesting reads from the outside in. In
+
+      ```kotlin
+      requireKey("s3cret", requireParam("member", ::loanHandler))
+      ```
+
+      the key is checked first. A request with neither a key nor a `member` parameter is `FORBIDDEN`: the
+      inner filter is never reached. Swap the two filters and the same request would be a `BAD_REQUEST`.
+
+      A filter that adds a side job instead of a check always calls the wrapped handler:
+
+      ```kotlin
+      // Records each request's resource and the status code of its response.
+      fun logged(log: MutableList<String>, wrapped: Handler): Handler = { request ->
+          val response = wrapped(request)
+          log.add("${resource(request.url)} ${response.status.code}")
+          response
+      }
+      ```
+
+      A whole site is also a `Handler`, so a filter can wrap the router itself:
+      `logged(log, configureRoutes(libraryRoutes))` logs every request to every page.
+
+closing:
+  - title: Assessing yourself
+    md: |
+      This exercise is not marked by anyone. To judge your own attempt in the terms the lab uses:
+
+      - Does the file **compile**? This matters more than anything else. In the lab, a submission that does
+        not compile is capped at the lowest band however much of it is right.
+      - How many of the Part 1 and Part 2 tests pass?
+      - Is the code tidy: short functions, helpers reused instead of repeated, names that say what things
+        are?
+      - Did you think of cases the tests do not cover? The upper bands in the lab ask for evidence of
+        testing of your own, and the top band for commented work beyond the basic exercise.
+
+      See the [technique page](#/week/week1/technique) for the grading bands as the lab states them.
+
+given: { path: src/main/kotlin/Http.kt, source: Http.kt }
+starter: { path: src/main/kotlin/Library.kt, source: Library.starter.kt }
+solution: Library.solution.kt
+extraFiles:
+  - { path: build.sh, source: build.sh }
+  - { path: build.gradle.kts, source: build.gradle.kts }
+  - { path: settings.gradle.kts, source: settings.gradle.kts }
+  - { path: README.md, source: README.md }
+
+testFile:
+  path: src/test/kotlin/LibraryTest.kt
+  className: LibraryTest
+  header: |
+    import kotlin.test.Test
+    import kotlin.test.assertEquals
+
+tests:
+  # ---- Part 1: URLs -------------------------------------------------------
+  - id: t-protocol
+    part: part-a
+    name: can extract the protocol
+    body: |
+      assertEquals("http", protocol("http://library.example.org/book?title=dune"))
+      assertEquals("https", protocol("https://library.example.org/"))
+  - id: t-server
+    part: part-a
+    name: can extract the server
+    body: |
+      assertEquals("library.example.org", server("http://library.example.org/book?title=dune"))
+      assertEquals("catalogue.test", server("https://catalogue.test/about/hours"))
+  - id: t-server-edges
+    part: part-a
+    name: server excludes the port and copes with a missing resource
+    body: |
+      assertEquals("library.example.org", server("http://library.example.org:8080/book"))
+      assertEquals("library.example.org", server("http://library.example.org"))
+      assertEquals("library.example.org", server("http://library.example.org?title=dune"))
+  - id: t-port
+    part: part-a
+    name: can extract the port or fall back to the default
+    body: |
+      assertEquals(8080, port("http://library.example.org:8080/book"))
+      assertEquals(80, port("http://library.example.org/book"))
+      assertEquals(443, port("https://library.example.org/book"))
+      assertEquals(8443, port("https://library.example.org:8443"))
+  - id: t-resource
+    part: part-a
+    name: can extract the resource
+    body: |
+      assertEquals("/book", resource("http://library.example.org/book?title=dune"))
+      assertEquals("/about/hours", resource("http://library.example.org:8080/about/hours"))
+      assertEquals("/", resource("http://library.example.org/"))
+  - id: t-resource-root
+    part: part-a
+    name: a missing resource is the root
+    body: |
+      assertEquals("/", resource("http://library.example.org"))
+      assertEquals("/", resource("http://library.example.org:8080"))
+      assertEquals("/", resource("http://library.example.org?title=dune"))
+  - id: t-parameters
+    part: part-a
+    name: can extract parameters as pairs
+    body: |
+      assertEquals(
+          listOf("title" to "dune", "format" to "audio"),
+          parameters("http://library.example.org/book?title=dune&format=audio"),
+      )
+      assertEquals(listOf(Pair("member", "ada")), parameters("http://library.example.org/loans?member=ada"))
+  - id: t-parameters-none
+    part: part-a
+    name: a url with no parameters gives an empty list
+    body: |
+      assertEquals(emptyList(), parameters("http://library.example.org/book"))
+      assertEquals(emptyList(), parameters("http://library.example.org"))
+      assertEquals(emptyList(), parameters("http://library.example.org/book?"))
+  - id: t-parameters-edges
+    part: part-a
+    name: a parameter without a value has an empty value
+    body: |
+      assertEquals(listOf("available" to ""), parameters("http://library.example.org/book?available="))
+      assertEquals(
+          listOf("available" to "", "title" to "dune"),
+          parameters("http://library.example.org/book?available&title=dune"),
+      )
+  - id: t-parameter
+    part: part-a
+    name: can look up one parameter by name
+    body: |
+      val url = "http://library.example.org/book?title=dune&format=audio&title=emma"
+      assertEquals("audio", parameter(url, "format"))
+      assertEquals("dune", parameter(url, "title"))
+      assertEquals(null, parameter(url, "author"))
+      assertEquals(null, parameter("http://library.example.org/book", "title"))
+
+  # ---- Part 1: Handlers ---------------------------------------------------
+  - id: t-welcome
+    part: part-b
+    name: welcome handler greets every visitor
+    body: |
+      val response = welcomeHandler(Request("http://library.example.org/"))
+      assertEquals(Status.OK, response.status)
+      assertEquals("Welcome to the library", response.body)
+  - id: t-book
+    part: part-b
+    name: book handler shows the capitalised title
+    body: |
+      assertEquals(
+          Response(Status.OK, "Title: Dune"),
+          bookHandler(Request("http://library.example.org/book?title=dune")),
+      )
+      assertEquals(
+          Response(Status.OK, "Title: Emma"),
+          bookHandler(Request("http://library.example.org/book?format=audio&title=Emma")),
+      )
+  - id: t-book-default
+    part: part-b
+    name: book handler copes with a missing title
+    body: |
+      assertEquals(Response(Status.OK, "Title: Unknown"), bookHandler(Request("http://library.example.org/book")))
+  - id: t-loan
+    part: part-b
+    name: loan handler uses both parameters
+    body: |
+      assertEquals(
+          Response(Status.OK, "Ada may borrow for 7 days"),
+          loanHandler(Request("http://library.example.org/loans?member=ada&days=7")),
+      )
+      assertEquals(
+          Response(Status.OK, "Grace may borrow for 21 days"),
+          loanHandler(Request("http://library.example.org/loans?member=grace")),
+      )
+  - id: t-loan-bad
+    part: part-b
+    name: loan handler rejects a request with no member
+    body: |
+      val response = loanHandler(Request("http://library.example.org/loans?days=7"))
+      assertEquals(Status.BAD_REQUEST, response.status)
+      assertEquals(400, response.status.code)
+      assertEquals("", response.body)
+
+  # ---- Part 2: Routing ----------------------------------------------------
+  - id: t-route-root
+    part: part-c
+    name: routes the root to the welcome page
+    body: |
+      assertEquals(Response(Status.OK, "Welcome to the library"), route(Request("http://library.example.org/")))
+      assertEquals(Response(Status.OK, "Welcome to the library"), route(Request("http://library.example.org")))
+  - id: t-route-pages
+    part: part-c
+    name: routes each resource to its handler
+    body: |
+      assertEquals("Title: Dune", route(Request("http://library.example.org/book?title=dune")).body)
+      assertEquals("Ada may borrow for 21 days", route(Request("http://library.example.org/loans?member=ada")).body)
+      assertEquals("Open 9 to 5", route(Request("http://library.example.org/about/hours")).body)
+  - id: t-route-404
+    part: part-c
+    name: unknown resources are not found
+    body: |
+      val response = route(Request("http://library.example.org/cafe"))
+      assertEquals(Status.NOT_FOUND, response.status)
+      assertEquals(404, response.status.code)
+      assertEquals("", response.body)
+      assertEquals(Status.NOT_FOUND, route(Request("http://library.example.org/about")).status)
+      assertEquals(Status.NOT_FOUND, route(Request("http://library.example.org/books")).status)
+  - id: t-route-only-resource
+    part: part-c
+    name: only the resource decides the route
+    body: |
+      assertEquals("Open 9 to 5", route(Request("https://other.test:8443/about/hours?day=sunday")).body)
+      assertEquals(Status.BAD_REQUEST, route(Request("http://library.example.org/loans")).status)
+
+  # ---- Extension: configurable routing ------------------------------------
+  - id: t-configure-refs
+    part: part-d
+    name: configured routes behave like route
+    body: |
+      val app: Handler = configureRoutes(libraryRoutes)
+      val urls = listOf(
+          "http://library.example.org/",
+          "http://library.example.org/book?title=dune",
+          "http://library.example.org/loans?member=ada&days=3",
+          "http://library.example.org/about/hours",
+          "http://library.example.org/cafe",
+      )
+      for (url in urls) {
+          assertEquals(route(Request(url)), app(Request(url)))
+      }
+      assertEquals(4, libraryRoutes.size)
+  - id: t-configure-lambdas
+    part: part-d
+    name: routes can be lambdas
+    body: |
+      val app: Handler = configureRoutes(
+          listOf(
+              "/ping" to { Response(Status.OK, "pong") },
+              "/echo" to { request -> Response(Status.OK, parameter(request.url, "say") ?: "") },
+              "/welcome" to ::welcomeHandler,
+          ),
+      )
+      assertEquals(Response(Status.OK, "pong"), app(Request("http://x.test/ping")))
+      assertEquals(Response(Status.OK, "hello"), app(Request("http://x.test/echo?say=hello")))
+      assertEquals("Welcome to the library", app(Request("http://x.test/welcome")).body)
+  - id: t-configure-404
+    part: part-d
+    name: configured routes fall back to not found
+    body: |
+      val app = configureRoutes(listOf("/ping" to { Response(Status.OK, "pong") }))
+      assertEquals(Response(Status.NOT_FOUND, ""), app(Request("http://x.test/book?title=dune")))
+      assertEquals(Response(Status.NOT_FOUND, ""), configureRoutes(emptyList())(Request("http://x.test/")))
+
+  # ---- Extension: filters -------------------------------------------------
+  - id: t-key-allows
+    part: part-e
+    name: requireKey lets the right key through
+    body: |
+      val staff: Handler = requireKey("s3cret", { Response(Status.OK, "Staff rota") })
+      assertEquals(Response(Status.OK, "Staff rota"), staff(Request("http://x.test/staff", "s3cret")))
+  - id: t-key-forbids
+    part: part-e
+    name: requireKey forbids a wrong or missing key
+    body: |
+      var calls = 0
+      val staff: Handler = requireKey("s3cret") {
+          calls++
+          Response(Status.OK, "Staff rota")
+      }
+      assertEquals(Response(Status.FORBIDDEN, ""), staff(Request("http://x.test/staff", "guess")))
+      assertEquals(403, staff(Request("http://x.test/staff")).status.code)
+      assertEquals(0, calls)
+  - id: t-param
+    part: part-e
+    name: requireParam insists on a parameter
+    body: |
+      val search: Handler = requireParam("q") { request ->
+          Response(Status.OK, "Results for ${parameter(request.url, "q")}")
+      }
+      assertEquals(Response(Status.OK, "Results for owls"), search(Request("http://x.test/search?q=owls")))
+      assertEquals(Response(Status.BAD_REQUEST, ""), search(Request("http://x.test/search?page=2")))
+      assertEquals(Response(Status.BAD_REQUEST, ""), search(Request("http://x.test/search")))
+  - id: t-compose
+    part: part-e
+    name: filters compose and the outer one is consulted first
+    body: |
+      val renew: Handler = requireKey("s3cret", requireParam("member", ::loanHandler))
+      assertEquals(
+          Response(Status.OK, "Ada may borrow for 21 days"),
+          renew(Request("http://x.test/loans?member=ada", "s3cret")),
+      )
+      assertEquals(Status.BAD_REQUEST, renew(Request("http://x.test/loans", "s3cret")).status)
+      assertEquals(Status.FORBIDDEN, renew(Request("http://x.test/loans?member=ada")).status)
+      assertEquals(Status.FORBIDDEN, renew(Request("http://x.test/loans")).status)
+  - id: t-filtered-routes
+    part: part-e
+    name: filtered handlers can be used as routes
+    body: |
+      val app: Handler = configureRoutes(
+          listOf(
+              "/" to ::welcomeHandler,
+              "/staff/rota" to requireKey("s3cret", { Response(Status.OK, "Staff rota") }),
+          ),
+      )
+      assertEquals(Status.OK, app(Request("http://x.test/")).status)
+      assertEquals(Status.FORBIDDEN, app(Request("http://x.test/staff/rota")).status)
+      assertEquals("Staff rota", app(Request("http://x.test/staff/rota", "s3cret")).body)
+      assertEquals(Status.NOT_FOUND, app(Request("http://x.test/staff", "s3cret")).status)

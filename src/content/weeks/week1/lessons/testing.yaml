@@ -1,0 +1,180 @@
+title: Testing with kotlin.test
+summary: "Reading the provided tests, understanding a failure message, and adding tests of your own."
+blocks:
+  - prose: |
+      The exercise comes with a test file. Each test is a function marked `@Test` inside a class. The test
+      calls your code and states what the answer should be with an assertion. The one you will see most is
+
+      ```kotlin
+      assertEquals(expected, actual)
+      ```
+
+      The **expected** value comes first and the value your code **actually** produced comes second. Getting
+      them the wrong way round does not change whether the test passes, but it makes the failure message
+      misleading.
+
+      The examples on this page are test classes rather than programs, so *Run* runs them as tests.
+  - example:
+      title: A test class
+      mode: test
+      code: |
+        import kotlin.test.Test
+        import kotlin.test.assertEquals
+        import kotlin.test.assertTrue
+
+        fun initials(name: String): String =
+            name.split(" ").joinToString("") { it.substring(0, 1).uppercase() }
+
+        class InitialsTest {
+            @Test
+            fun `takes the first letter of each word`() {
+                assertEquals("AL", initials("Ada Lovelace"))
+            }
+
+            @Test
+            fun `upper-cases the letters`() {
+                assertEquals("GH", initials("grace hopper"))
+            }
+
+            @Test
+            fun `a single name gives a single letter`() {
+                assertTrue(initials("Plato").length == 1)
+            }
+        }
+  - prose: |
+      Test names in backticks may contain spaces, which lets a name say what is being checked. Tests are
+      independent: each runs on its own, in no particular order, and one failing does not stop the others.
+
+      ## Reading a failure
+
+      When an `assertEquals` fails, the message shows both values. The function below has a bug. Run the tests
+      and read the message before reading on.
+  - example:
+      title: A failing test
+      mode: test
+      expect: fails
+      code: |
+        import kotlin.test.Test
+        import kotlin.test.assertEquals
+
+        // Meant to return the file extension, without the dot.
+        fun extension(file: String): String = file.substringAfter(".")
+
+        class ExtensionTest {
+            @Test
+            fun `simple file name`() {
+                assertEquals("kt", extension("Main.kt"))
+            }
+
+            @Test
+            fun `file name with two dots`() {
+                assertEquals("gz", extension("backup.tar.gz"))
+            }
+        }
+  - prose: |
+      The second test reports something like `expected:<[]gz> but was:<[tar.]gz>`. Read it as: the test wanted
+      `gz`, the code produced `tar.gz`. The square brackets mark the part where the two strings differ. From
+      that you can see what went wrong without a debugger: the code cut at the *first* dot, and it should have
+      cut at the last (`substringAfterLast`). Fix it in the editor and run again.
+
+      A test can also fail by **error**: the code threw an exception before any assertion was reached. The
+      skeleton you are given is full of `TODO()` calls, and `TODO()` throws `NotImplementedError`, so every
+      test begins life failing that way.
+  - example:
+      title: An unimplemented function
+      mode: test
+      expect: fails
+      code: |
+        import kotlin.test.Test
+        import kotlin.test.assertEquals
+
+        fun shortName(module: String): String = TODO()
+
+        class ShortNameTest {
+            @Test
+            fun `keeps the digits`() {
+                assertEquals("40009", shortName("COMP40009"))
+            }
+        }
+  - note:
+      title: Uncomment one test at a time
+      md: |
+        In the real exercise most tests start commented out. The intended rhythm is: uncomment one test, see it
+        fail, write just enough code to make it pass, run *all* the tests, commit. If you uncomment everything
+        at once the file will not compile, because the tests call functions you have not written yet.
+  - prose: |
+      ## Adding your own tests
+
+      The grading scheme rewards "evidence of productive testing", and the spec asks you to add tests "in the
+      same style". A useful extra test checks something the provided tests do not: an edge of the input (empty,
+      missing, repeated) or a second example that would catch a hard-coded answer.
+  - example:
+      title: Adding edge-case tests
+      mode: test
+      code: |
+        import kotlin.test.Test
+        import kotlin.test.assertEquals
+
+        fun wordCount(text: String): Int =
+            if (text.isBlank()) 0 else text.trim().split(" ").filter { it.isNotEmpty() }.size
+
+        class WordCountTest {
+            // Provided test
+            @Test
+            fun `counts words separated by spaces`() {
+                assertEquals(3, wordCount("your server as"))
+            }
+
+            // Added: edges the provided test does not reach
+            @Test
+            fun `empty text has no words`() {
+                assertEquals(0, wordCount(""))
+            }
+
+            @Test
+            fun `repeated and surrounding spaces are ignored`() {
+                assertEquals(2, wordCount("  a   function "))
+            }
+        }
+  - haskell: |
+      If you wrote tests in the Haskell term they were probably tables of inputs and expected outputs, or
+      properties. A JUnit-style test is the table written out one row per function:
+      `assertEquals(expected, f(input))` is the row `f input ==> expected`.
+  - check:
+      id: testing-c1
+      type: mc
+      title: Argument order
+      prompt: "A test contains `assertEquals(\"/search\", route(url))` and fails with `expected:</search> but was:</find>`. What did `route(url)` return?"
+      options:
+        - "`\"/search\"`"
+        - "`\"/find\"`"
+        - "Nothing: it threw an exception"
+        - "It cannot be determined"
+      answer: 1
+      explanation: "The first argument is the expected value and the second is the actual one. The message labels them in the same order: `but was` is what the code produced."
+  - check:
+      id: testing-c2
+      type: fill
+      title: Mark the test
+      prompt: "What annotation goes in the blank so that the function is run as a test?"
+      code: |
+        class MathsTest {
+            ____
+            fun `two and two make four`() {
+                assertEquals(4, 2 + 2)
+            }
+        }
+      accepted: ["@Test"]
+      explanation: "Without `@Test` the function is just a method that nothing calls, so it would silently never run."
+  - check:
+      id: testing-c3
+      type: mc
+      title: A test that errors
+      prompt: "A test fails with `kotlin.NotImplementedError: An operation is not implemented.` What is the most likely cause?"
+      options:
+        - "The expected and actual values were different."
+        - "The test file does not compile."
+        - "The function under test still contains `TODO()`."
+        - "The test has no assertions."
+      answer: 2
+      explanation: "`TODO()` throws `NotImplementedError` when it is reached. Replace it with a real implementation."

@@ -1,0 +1,134 @@
+title: Pairs, to, and destructuring
+summary: "Two values held together: building pairs, reading their parts, and unpacking them into names."
+blocks:
+  - prose: |
+      A `Pair<A, B>` holds two values, possibly of different types. The types in angle brackets are **type
+      arguments**: `Pair<String, Int>` is a pair whose first component is a `String` and whose second is an
+      `Int`.
+
+      There are two ways to build one. `Pair("ada", 36)` calls the constructor. `"ada" to 36` uses the infix
+      function `to`, which does the same thing and reads better in lists of mappings. The components are read
+      with `.first` and `.second`.
+  - example:
+      title: Building and reading pairs
+      code: |
+        fun main() {
+            val p: Pair<String, Int> = Pair("ada", 36)
+            val q = "grace" to 85            // inferred: Pair<String, Int>
+
+            println(p.first)
+            println(q.second)
+            println(q)
+            println(p == Pair("ada", 36))    // pairs compare by value
+            println(("x" to 1) == ("x" to 1))
+        }
+  - haskell: |
+      A `Pair` is a 2-tuple. `first` and `second` are `fst` and `snd`.
+
+      ```haskell
+      p :: (String, Int)
+      p = ("ada", 36)
+
+      name = fst p
+      ```
+
+      ```kotlin
+      val p: Pair<String, Int> = "ada" to 36
+
+      val name = p.first
+      ```
+
+      Where Haskell writes the type of a tuple as `(String, Int)`, Kotlin writes `Pair<String, Int>`. The
+      general rule: Haskell's `Maybe a` and `[a]` become `A?` and `List<A>`, with type arguments in angle
+      brackets instead of juxtaposition.
+  - prose: |
+      ## Destructuring
+
+      A pair can be unpacked into two names in one declaration. This is the Kotlin form of pattern-matching on
+      a tuple, and it works in `val` declarations, in lambda parameters and in `for` loops.
+  - example:
+      title: Destructuring
+      code: |
+        fun minMax(xs: List<Int>): Pair<Int, Int> = xs.min() to xs.max()
+
+        fun main() {
+            val (lo, hi) = minMax(listOf(4, 9, 2, 7))
+            println("lowest $lo, highest $hi")
+
+            val entry = "colour=teal"
+            val (key, value) = entry.split("=")   // lists destructure too
+            println("$key is $value")
+
+            val settings = listOf("size" to "m", "colour" to "teal")
+            for ((k, v) in settings) {
+                println("$k -> $v")
+            }
+        }
+  - prose: |
+      ## Lists of pairs
+
+      A list of pairs is the simplest way to represent a set of key–value mappings, and it appears twice in this
+      week's exercise: once for query parameters (`List<Pair<String, String>>`) and once for routes. Looking up
+      a key is a search for the first pair whose `first` matches.
+  - example:
+      title: A list of pairs as a lookup table
+      code: |
+        val prices: List<Pair<String, Int>> = listOf(
+            "tea" to 180,
+            "coffee" to 260,
+            "cake" to 320,
+        )
+
+        fun priceOf(item: String): Int? =
+            prices.firstOrNull { it.first == item }?.second
+
+        fun main() {
+            println(priceOf("coffee"))
+            println(priceOf("soup"))
+            println(prices.map { it.first })
+            println(prices.map { (item, pence) -> "$item: ${pence}p" })
+        }
+  - check:
+      id: pairs-c1
+      type: fill
+      title: Infix construction
+      prompt: "Fill the blank with the infix function that builds a pair, so the program prints `(id, 7)`."
+      code: |
+        fun main() {
+            val p = "id" ____ 7
+            println(p)
+        }
+      accepted: ["to"]
+      expectedOutput: "(id, 7)"
+      explanation: "`a to b` is the same as `Pair(a, b)`."
+  - check:
+      id: pairs-c2
+      type: predict
+      title: Unpacking
+      prompt: Follow the destructuring carefully.
+      code: |
+        fun swap(p: Pair<String, Int>): Pair<Int, String> = p.second to p.first
+
+        fun main() {
+            val (a, b) = swap("x" to 1)
+            println(a)
+            println(b)
+            println(swap("y" to 2).first + 1)
+        }
+      expected: |
+        1
+        x
+        3
+      explanation: "`swap` returns `(1, \"x\")`, so `a` is the `Int` and `b` is the `String`."
+  - check:
+      id: pairs-c3
+      type: mc
+      title: Type of a mapping list
+      prompt: "What is the type of `listOf(\"a\" to 1.5, \"b\" to 2.0)`?"
+      options:
+        - "`List<String, Double>`"
+        - "`Pair<List<String>, List<Double>>`"
+        - "`List<Pair<String, Double>>`"
+        - "`List<Pair<String, Int>>`"
+      answer: 2
+      explanation: "Each element is a `Pair<String, Double>`, and `listOf` makes a list of them."

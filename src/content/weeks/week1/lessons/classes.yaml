@@ -1,0 +1,163 @@
+title: Classes, data classes and enums
+summary: "Reading and using simple types: constructors with default arguments, data classes, and enums that carry a value."
+blocks:
+  - prose: |
+      This week you do not have to design classes; the exercise gives you three small ones in `Http.kt`. You do
+      have to read their definitions, construct values, and read their properties.
+
+      A class is declared with its **primary constructor** in the header. Putting `val` in front of a
+      constructor parameter makes it a property that can be read with dot notation. Objects are created by
+      calling the class name like a function; there is no `new`.
+  - example:
+      title: A class with properties
+      code: |
+        class Ticket(val event: String, val seat: Int)
+
+        fun main() {
+            val t = Ticket("Kotlin lecture", 12)
+            println(t.event)
+            println(t.seat)
+            println("Seat ${t.seat} for ${t.event}")
+        }
+  - prose: |
+      ## Data classes
+
+      Put `data` in front and the compiler writes the routine parts for you: `==` compares the properties,
+      `toString()` prints them, `copy()` makes a modified copy, and the object can be destructured. A plain
+      class has none of these; two plain objects are `==` only if they are the very same object.
+
+      That matters in tests: `assertEquals` uses `==`, so comparing whole objects only works as you would hope
+      for data classes.
+  - example:
+      title: Data classes compare by value
+      code: |
+        data class Point(val x: Int, val y: Int)
+        class PlainPoint(val x: Int, val y: Int)
+
+        fun main() {
+            val p = Point(1, 2)
+            println(p)
+            println(p == Point(1, 2))
+            println(PlainPoint(1, 2) == PlainPoint(1, 2))
+
+            val moved = p.copy(y = 10)
+            println(moved)
+
+            val (x, y) = moved
+            println(x + y)
+        }
+  - haskell: |
+      A data class is a record type with one constructor. The compiler-written `==` and `toString()` are what
+      `deriving (Eq, Show)` gave you.
+
+      ```haskell
+      data Point = Point { x :: Int, y :: Int }
+        deriving (Eq, Show)
+      ```
+
+      ```kotlin
+      data class Point(val x: Int, val y: Int)
+      ```
+
+      An `enum class` is a data type whose constructors take no arguments:
+
+      ```haskell
+      data Suit = Hearts | Spades
+      ```
+
+      ```kotlin
+      enum class Suit { HEARTS, SPADES }
+      ```
+  - prose: |
+      ## Constructors with default arguments
+
+      Constructor parameters can have defaults, just like function parameters. A caller that does not care
+      about the optional value leaves it out.
+  - example:
+      title: A default constructor argument
+      code: |
+        data class Booking(val guest: String, val room: String = "unassigned")
+
+        fun main() {
+            val a = Booking("Ada")
+            val b = Booking("Grace", "204")
+            println(a)
+            println(b.room)
+            println(a.room.isEmpty())
+            println(a == Booking("Ada", "unassigned"))
+        }
+  - prose: |
+      ## Enums with properties
+
+      An `enum class` defines a fixed set of named constants. Each constant can carry data: the enum declares a
+      constructor, and each constant supplies its arguments. Constants are referred to through the enum's name,
+      and compared with `==`.
+  - example:
+      title: An enum whose constants carry a value
+      code: |
+        enum class Grade(val threshold: Int) {
+            FIRST(70),
+            UPPER_SECOND(60),
+            PASS(40),
+            FAIL(0),
+        }
+
+        fun gradeFor(mark: Int): Grade = when {
+            mark >= Grade.FIRST.threshold -> Grade.FIRST
+            mark >= Grade.UPPER_SECOND.threshold -> Grade.UPPER_SECOND
+            mark >= Grade.PASS.threshold -> Grade.PASS
+            else -> Grade.FAIL
+        }
+
+        fun main() {
+            val g = gradeFor(64)
+            println(g)
+            println(g.threshold)
+            println(g == Grade.UPPER_SECOND)
+            println(Grade.FIRST.name)
+        }
+  - check:
+      id: classes-c1
+      type: predict
+      title: Defaults and equality
+      prompt: "`Parcel` is a data class."
+      code: |
+        data class Parcel(val to: String, val note: String = "")
+
+        fun main() {
+            val p = Parcel("Huxley 219")
+            println(p.note.isEmpty())
+            println(p == Parcel("Huxley 219", ""))
+            println(p.copy(note = "fragile"))
+        }
+      expected: |
+        true
+        true
+        Parcel(to=Huxley 219, note=fragile)
+      explanation: "Leaving out `note` gives it the default `\"\"`, so the two parcels have equal properties, and data classes compare by value. `toString()` lists each property by name."
+  - check:
+      id: classes-c2
+      type: fill
+      title: Reading an enum property
+      prompt: "Fill the blank so the program prints `404`."
+      code: |
+        enum class Outcome(val code: Int) { FOUND(200), MISSING(404) }
+
+        fun main() {
+            println(Outcome.MISSING.____)
+        }
+      accepted: ["code"]
+      expectedOutput: "404"
+      explanation: "The enum's constructor parameter `val code` is a property of every constant."
+  - check:
+      id: classes-c3
+      type: mc
+      title: Creating an object
+      prompt: "Given `data class Note(val text: String, val author: String = \"\")`, which expression does **not** compile?"
+      options:
+        - "`Note(\"hi\")`"
+        - "`Note(\"hi\", \"tom\")`"
+        - "`Note(author = \"tom\", text = \"hi\")`"
+        - "`Note()`"
+      answer: 3
+      explanation: "`text` has no default, so it must always be supplied. `author` is optional."

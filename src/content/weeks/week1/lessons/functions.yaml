@@ -1,0 +1,143 @@
+title: Functions
+summary: "Declaring functions with expression bodies and block bodies, default and named arguments, and recursion."
+blocks:
+  - prose: |
+      A function is declared with `fun`. Parameters are written `name: Type`, and the return type follows the
+      parameter list. There are two ways to write the body.
+
+      An **expression body** is a single expression after `=`. This is the closest thing to a Haskell equation,
+      and it is the form to prefer when the function is one expression.
+
+      A **block body** is a sequence of statements in braces, and the result is given with `return`.
+  - example:
+      title: Expression body and block body
+      code: |
+        // Expression body: the function *is* this expression.
+        fun square(x: Int): Int = x * x
+
+        // The return type may be omitted with an expression body; it is inferred.
+        fun cube(x: Int) = x * square(x)
+
+        // Block body: statements, then an explicit return.
+        fun describe(x: Int): String {
+            val sq = square(x)
+            val cu = cube(x)
+            return "$x squared is $sq, cubed is $cu"
+        }
+
+        fun main() {
+            println(square(7))
+            println(describe(3))
+        }
+  - haskell: |
+      The parts are the same as in a Haskell definition, in a different order. The type signature is folded into
+      the definition, and arguments are passed in parentheses, separated by commas.
+
+      ```haskell
+      square :: Int -> Int
+      square x = x * x
+
+      area :: Int -> Int -> Int
+      area w h = w * h
+      ```
+
+      ```kotlin
+      fun square(x: Int): Int = x * x
+
+      fun area(w: Int, h: Int): Int = w * h
+      ```
+
+      A Kotlin function with two parameters takes both at once: `area(3, 4)`. It is not curried, so `area(3)` is
+      an error, not a partially applied function. The lesson on closures shows how to get that effect back.
+  - note:
+      title: A block body needs return
+      md: |
+        With a block body, forgetting `return` is a compile error if the function declares a return type. A
+        function with a block body and *no* declared return type returns `Unit` (Kotlin's `()`), which is what
+        `main` does.
+  - prose: |
+      ## Default and named arguments
+
+      A parameter can be given a default value. Callers may then leave it out. Arguments can also be passed by
+      name, which lets you skip earlier defaults and makes calls easier to read.
+  - example:
+      title: Default and named arguments
+      code: |
+        fun greet(name: String, greeting: String = "Hello", punctuation: String = "!"): String =
+            "$greeting, $name$punctuation"
+
+        fun main() {
+            println(greet("Ada"))
+            println(greet("Ada", "Welcome back"))
+            println(greet("Ada", punctuation = "?"))
+            println(greet(greeting = "Hi", name = "Grace"))
+        }
+  - prose: |
+      Default arguments matter this week because the provided `Request` class uses one: its second constructor
+      parameter is optional. Constructors follow exactly the same rules as functions.
+
+      ## Recursion
+
+      Functions can call themselves. A recursive function must declare its return type, because the compiler
+      cannot infer a type from a definition that refers to itself.
+  - example:
+      title: Recursion
+      code: |
+        fun factorial(n: Int): Int = if (n <= 1) 1 else n * factorial(n - 1)
+
+        fun countDigits(n: Int): Int {
+            if (n < 10) return 1
+            return 1 + countDigits(n / 10)
+        }
+
+        fun main() {
+            println(factorial(5))
+            println(countDigits(40009))
+        }
+  - check:
+      id: functions-c1
+      type: fill
+      title: Expression body
+      prompt: "Complete the function so that `double(4)` is `8`."
+      code: |
+        fun double(x: Int): Int ____ x * 2
+
+        fun main() {
+            println(double(4))
+        }
+      accepted: ["="]
+      expectedOutput: "8"
+      explanation: "An expression body is introduced with `=`. With braces you would need `{ return x * 2 }`."
+  - check:
+      id: functions-c2
+      type: predict
+      title: Defaults in action
+      prompt: Work out which parameter each argument binds to.
+      code: |
+        fun price(amount: Int, currency: String = "GBP", sep: String = " "): String =
+            "$amount$sep$currency"
+
+        fun main() {
+            println(price(5))
+            println(price(5, "EUR"))
+            println(price(5, sep = "-"))
+        }
+      expected: |
+        5 GBP
+        5 EUR
+        5-GBP
+      explanation: "Positional arguments fill parameters left to right; anything left over takes its default. Naming `sep` skips over `currency`, which keeps its default."
+  - check:
+      id: functions-c3
+      type: mc
+      title: Return type
+      prompt: "What is wrong with this function?"
+      code: |
+        fun sumTo(n: Int) = if (n == 0) 0 else n + sumTo(n - 1)
+      options:
+        - "Nothing: it compiles and returns an `Int`."
+        - "A recursive function with an expression body must declare its return type."
+        - "`if` cannot be used as an expression."
+        - "It needs a block body because it has two branches."
+      answer: 1
+      explanation: "The compiler would have to know the type of `sumTo` to infer the type of `sumTo`. Writing `fun sumTo(n: Int): Int = ...` fixes it."

@@ -1,0 +1,145 @@
+title: Lists and their operations
+summary: "Immutable lists, and the higher-order operations you already know from Haskell under slightly different names."
+blocks:
+  - prose: |
+      `List<T>` is an ordered, read-only collection. You build one with `listOf(...)`; the empty list is
+      `emptyList()` or `listOf()`. Elements are read by index with `xs[i]`, and `xs.size` is the length.
+
+      Because a `List` is read-only, operations such as `+` and `map` return new lists.
+  - example:
+      title: Building and inspecting lists
+      code: |
+        fun main() {
+            val xs: List<Int> = listOf(3, 1, 4, 1, 5)
+            val none: List<String> = emptyList()
+
+            println(xs)
+            println(xs.size)
+            println(xs[0])
+            println(xs.first())
+            println(xs.last())
+            println(xs + 9)                 // a new list; xs is unchanged
+            println(xs.contains(4))
+            println(4 in xs)                // same thing
+            println(none.isEmpty())
+            println(xs.drop(1))
+            println(xs.take(2))
+        }
+  - prose: |
+      ## Transforming and selecting
+
+      The operations below take a function as their argument. For now read `{ it * 2 }` as "the function that
+      doubles its argument"; `it` is the name of the single parameter. The lesson on lambdas covers the syntax
+      properly.
+
+      | Operation | Result |
+      |---|---|
+      | `xs.map { f(it) }` | a list of the results of applying `f` to each element |
+      | `xs.filter { p(it) }` | the elements for which `p` holds |
+      | `xs.find { p(it) }` / `xs.firstOrNull { p(it) }` | the first such element, or `null` |
+      | `xs.any { p(it) }` / `xs.all { p(it) }` | whether some / every element satisfies `p` |
+      | `xs.joinToString(", ")` | one string, with the separator between elements |
+      | `xs.fold(initial) { acc, x -> ... }` | combine all elements, starting from `initial` |
+  - example:
+      title: map, filter, find, any
+      code: |
+        fun main() {
+            val words = listOf("route", "handler", "filter", "request")
+
+            println(words.map { it.length })
+            println(words.map { it.uppercase() })
+            println(words.filter { it.length > 6 })
+            println(words.find { it.startsWith("f") })
+            println(words.firstOrNull { it.startsWith("z") })
+            println(words.any { it.contains("que") })
+            println(words.all { it.length >= 5 })
+            println(words.filter { "r" in it }.map { it.first() })
+        }
+  - haskell: |
+      These are the functions you spent the Haskell term with. They are methods on the list rather than free
+      functions, so the list comes first and chains read left to right.
+
+      | Haskell | Kotlin |
+      |---|---|
+      | `map f xs` | `xs.map(f)` or `xs.map { f(it) }` |
+      | `filter p xs` | `xs.filter(p)` |
+      | `find p xs` (a `Maybe`) | `xs.find(p)`, `xs.firstOrNull(p)` (nullable) |
+      | `any p xs`, `all p xs` | `xs.any(p)`, `xs.all(p)` |
+      | `foldl f z xs` | `xs.fold(z) { acc, x -> f(acc, x) }` |
+      | `intercalate ", " xs` | `xs.joinToString(", ")` |
+      | `length xs`, `xs !! i` | `xs.size`, `xs[i]` |
+      | `x : xs`, `xs ++ ys` | `listOf(x) + xs`, `xs + ys` |
+
+      ```haskell
+      map length (filter ((> 6) . length) ws)
+      ```
+
+      ```kotlin
+      ws.filter { it.length > 6 }.map { it.length }
+      ```
+
+      There is no pattern-matching on `(x:xs)`. Recursion over a list is possible with `first()` and `drop(1)`,
+      but in Kotlin you would nearly always use `map`, `filter` or `fold` instead.
+  - example:
+      title: joinToString and fold
+      code: |
+        fun main() {
+            val marks = listOf(72, 65, 81)
+
+            println(marks.joinToString(", "))
+            println(marks.joinToString(" + ", prefix = "[", postfix = "]"))
+            println(marks.joinToString("&") { "m=$it" })
+
+            val total = marks.fold(0) { acc, m -> acc + m }
+            println(total)
+            println(marks.sum())            // the common folds have names
+
+            val longest = listOf("ab", "abcd", "abc").fold("") { best, s ->
+                if (s.length > best.length) s else best
+            }
+            println(longest)
+        }
+  - check:
+      id: lists-c1
+      type: predict
+      title: A small pipeline
+      prompt: Evaluate one stage at a time.
+      code: |
+        fun main() {
+            val xs = listOf(1, 2, 3, 4, 5, 6)
+            println(xs.filter { it % 2 == 0 }.map { it * it })
+            println(xs.find { it > 4 })
+            println(xs.find { it > 6 })
+            println(xs.take(3).joinToString("-"))
+        }
+      expected: |
+        [4, 16, 36]
+        5
+        null
+        1-2-3
+      explanation: "The evens are 2, 4, 6 and their squares follow. `find` returns the first match, or `null` when nothing matches."
+  - check:
+      id: lists-c2
+      type: fill
+      title: Any match
+      prompt: "Fill the blank with the list operation that makes this print `true`: is there at least one negative number?"
+      code: |
+        fun main() {
+            val xs = listOf(3, -1, 4)
+            println(xs.____ { it < 0 })
+        }
+      accepted: ["any"]
+      expectedOutput: "true"
+      explanation: "`any` is true when at least one element satisfies the predicate. (`all` would be false here, and `filter` would print a list.)"
+  - check:
+      id: lists-c3
+      type: mc
+      title: fold
+      prompt: "What does `listOf(\"a\", \"b\", \"c\").fold(\"\") { acc, s -> s + acc }` evaluate to?"
+      options:
+        - "`\"abc\"`"
+        - "`\"cba\"`"
+        - "`\"c\"`"
+        - "`[\"c\", \"b\", \"a\"]`"
+      answer: 1
+      explanation: "Each step puts the new element in front of the accumulator: `\"a\"`, then `\"ba\"`, then `\"cba\"`. `fold` works from the left, like `foldl`."

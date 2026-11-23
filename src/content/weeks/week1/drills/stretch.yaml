@@ -1,0 +1,228 @@
+- id: x-apply-twice
+  type: write
+  title: Apply a function twice
+  lesson: lambdas
+  prompt: "Write `twice(f, x)`, which applies `f` to `x` and then applies `f` again to the result."
+  starter: |
+    fun twice(f: (Int) -> Int, x: Int): Int = TODO()
+  solution: |
+    fun twice(f: (Int) -> Int, x: Int): Int = f(f(x))
+  tests:
+    - { name: "add three, twice", actual: "twice({ it + 3 }, 10)", expected: "16" }
+    - { name: "square, twice", actual: "twice({ it * it }, 3)", expected: "81" }
+    - { name: "identity", actual: "twice({ it }, 7)", expected: "7" }
+  explanation: "A parameter of function type is called like any function. In Haskell: `twice f x = f (f x)`."
+
+- id: x-trailing
+  type: predict
+  title: Lambdas on lists
+  lesson: lambdas
+  prompt: "Follow the chain one call at a time."
+  code: |
+    fun main() {
+        val words = listOf("route", "handler", "filter", "to")
+        println(words.filter { it.length > 2 }.map { it.first() })
+        println(words.any { it.startsWith("h") })
+        println(words.firstOrNull { it.length == 2 }?.uppercase() ?: "none")
+        println(words.firstOrNull { it.length == 3 }?.uppercase() ?: "none")
+    }
+  expected: |
+    [r, h, f]
+    true
+    TO
+    none
+  explanation: "`firstOrNull` returns `null` when nothing matches; the safe call then skips `uppercase()` and the Elvis operator supplies `none`."
+
+- id: x-adder
+  type: write
+  title: A function that returns a function
+  lesson: closures
+  prompt: "Write `scaler(factor)`, which returns a function that multiplies its argument by `factor`. `scaler(3)(5)` is `15`."
+  starter: |
+    fun scaler(factor: Int): (Int) -> Int = TODO()
+  solution: |
+    fun scaler(factor: Int): (Int) -> Int = { x -> x * factor }
+  tests:
+    - { name: "scaler(3)(5)", actual: "scaler(3)(5)", expected: "15" }
+    - { name: "used with map", actual: "listOf(1, 2, 3).map(scaler(10))", expected: "listOf(10, 20, 30)" }
+    - { name: "two scalers are independent", actual: "scaler(2)(1) + scaler(5)(1)", expected: "7" }
+  explanation: "The body is a lambda; it captures `factor`. This is the explicit form of partially applying `(*)`."
+
+- id: x-typealias
+  type: fill
+  title: Name a function type
+  lesson: function-types
+  prompt: "Fill the blank so that `Check` names the type of functions from `String` to `Boolean`."
+  code: |
+    typealias Check = ____
+
+    fun main() {
+        val nonEmpty: Check = { it.isNotEmpty() }
+        println(nonEmpty("x"))
+    }
+  accepted: ["(String) -> Boolean"]
+  expectedOutput: "true"
+  explanation: "A `typealias` gives an existing type a new name; it does not create a new type."
+
+- id: x-compose
+  type: write
+  title: Compose two functions
+  lesson: closures
+  prompt: "Write `andThen(f, g)`, which returns a function that applies `f` first and then `g` to the result."
+  starter: |
+    fun andThen(f: (String) -> String, g: (String) -> String): (String) -> String = TODO()
+  solution: |
+    fun andThen(f: (String) -> String, g: (String) -> String): (String) -> String = { s -> g(f(s)) }
+  tests:
+    - { name: "trim then upper", actual: 'andThen({ it.trim() }, { it.uppercase() })("  hi ")', expected: '"HI"' }
+    - { name: "order matters (1)", actual: 'andThen({ it + "a" }, { it + "b" })("")', expected: '"ab"' }
+    - { name: "order matters (2)", actual: 'andThen({ it + "b" }, { it + "a" })("")', expected: '"ba"' }
+  explanation: "`andThen(f, g)` is `g . f` in Haskell: the composition written in the order the steps happen."
+
+- id: x-reference-list
+  type: predict
+  title: A list of functions
+  lesson: function-references
+  prompt: "`steps` holds two references and a lambda."
+  code: |
+    fun double(x: Int): Int = 2 * x
+    fun decrement(x: Int): Int = x - 1
+
+    fun main() {
+        val steps: List<(Int) -> Int> = listOf(::double, ::decrement, { it * it })
+        println(steps.size)
+        println(steps.map { it(4) })
+        println(steps.fold(3) { acc, f -> f(acc) })
+    }
+  expected: |
+    3
+    [8, 3, 16]
+    25
+  explanation: "The fold feeds 3 through each function in turn: 6, then 5, then 25."
+
+- id: x-pairs-of-functions
+  type: write
+  title: Pick an operation by name
+  lesson: function-references
+  prompt: "`operations` pairs names with functions. Write `calculate(name, x)`, which finds the operation with that name and applies it to `x`. If there is no such operation, return `x` unchanged."
+  starter: |
+    fun negate(x: Int): Int = -x
+    fun square(x: Int): Int = x * x
+
+    val operations: List<Pair<String, (Int) -> Int>> = listOf(
+        "negate" to ::negate,
+        "square" to ::square,
+        "half" to { it / 2 },
+    )
+
+    fun calculate(name: String, x: Int): Int = TODO()
+  solution: |
+    fun negate(x: Int): Int = -x
+    fun square(x: Int): Int = x * x
+
+    val operations: List<Pair<String, (Int) -> Int>> = listOf(
+        "negate" to ::negate,
+        "square" to ::square,
+        "half" to { it / 2 },
+    )
+
+    fun calculate(name: String, x: Int): Int {
+        val operation = operations.firstOrNull { it.first == name }
+        return if (operation != null) operation.second(x) else x
+    }
+  tests:
+    - { name: "square", actual: 'calculate("square", 7)', expected: "49" }
+    - { name: "negate", actual: 'calculate("negate", 7)', expected: "-7" }
+    - { name: "half (a lambda)", actual: 'calculate("half", 9)', expected: "4" }
+    - { name: "unknown name", actual: 'calculate("cube", 7)', expected: "7" }
+  explanation: "Find the pair, then call its second component. The short form is `operations.firstOrNull { it.first == name }?.second?.invoke(x) ?: x`."
+
+- id: x-closure-capture
+  type: mc
+  title: What does the lambda remember?
+  lesson: closures
+  prompt: "What does this program print?"
+  code: |
+    fun greeter(greeting: String): (String) -> String = { name -> "$greeting, $name" }
+
+    fun main() {
+        val a = greeter("Hello")
+        val b = greeter("Goodbye")
+        println(a("Tom") + " / " + b("Tom"))
+    }
+  options:
+    - "`Goodbye, Tom / Goodbye, Tom`"
+    - "`Hello, Tom / Goodbye, Tom`"
+    - "`Hello, Tom / Hello, Tom`"
+    - "It does not compile: `greeting` is out of scope inside the lambda"
+  answer: 1
+  explanation: "Each call to `greeter` creates a new closure that captures that call's `greeting`."
+
+- id: x-safe-chain
+  type: predict
+  title: Chaining safe calls
+  lesson: nullability
+  prompt: "`settings` is a list of pairs."
+  code: |
+    fun main() {
+        val settings = listOf("theme" to "dark", "font" to "")
+        fun setting(name: String): String? = settings.firstOrNull { it.first == name }?.second
+
+        println(setting("theme")?.length)
+        println(setting("size")?.length)
+        println(setting("size")?.length ?: -1)
+        println(setting("font") ?: "default")
+    }
+  expected: |
+    4
+    null
+    -1
+    
+  explanation: "A missing key gives `null`, which flows through `?.` until `?:` replaces it. `font` is present with an empty value: the empty string is not `null`, so the last line prints an empty line."
+
+- id: x-word-pairs
+  type: write
+  title: A settings line to a list of pairs
+  lesson: skill-decomposing
+  prompt: "A settings line looks like `theme:dark;font:mono`: entries separated by semicolons, each a name and a value separated by a colon. Write `settings(line)`, returning the entries as a list of pairs. An empty line gives an empty list."
+  starter: |
+    fun settings(line: String): List<Pair<String, String>> = TODO()
+  solution: |
+    fun settings(line: String): List<Pair<String, String>> =
+        if (line.isEmpty()) emptyList()
+        else line.split(";").map { it.substringBefore(":") to it.substringAfter(":") }
+  tests:
+    - { name: "two entries", actual: 'settings("theme:dark;font:mono")', expected: 'listOf("theme" to "dark", "font" to "mono")' }
+    - { name: "one entry", actual: 'settings("theme:dark")', expected: 'listOf("theme" to "dark")' }
+    - { name: "empty line", actual: 'settings("")', expected: "emptyList<Pair<String, String>>()" }
+    - { name: "order is kept", actual: 'settings("b:2;a:1").map { it.first }', expected: 'listOf("b", "a")' }
+  explanation: "Split into entries, then turn each entry into a pair. The empty line is a special case because `\"\".split(\";\")` is a list containing one empty string, not an empty list."
+
+- id: x-assert-order
+  type: mc
+  title: Reading a failure
+  lesson: testing
+  prompt: "A test contains `assertEquals(listOf(\"q\" to \"kotlin\"), parse(input))` and fails with `expected:<[(q, kotlin)]> but was:<[]>`. What is the most reasonable conclusion?"
+  options:
+    - "`parse` returned an empty list where one pair was expected."
+    - "`parse` returned one pair where an empty list was expected."
+    - "`parse` threw an exception."
+    - "The test is wrong, because lists cannot be compared with `assertEquals`."
+  answer: 0
+  explanation: "The first argument is the expected value. `but was` shows what the code actually returned: an empty list."
+
+- id: x-higher-order-count
+  type: write
+  title: Write a higher-order function
+  lesson: lambdas
+  prompt: "Write `countMatching(items, test)`, which returns how many strings in the list satisfy the predicate."
+  starter: |
+    fun countMatching(items: List<String>, test: (String) -> Boolean): Int = TODO()
+  solution: |
+    fun countMatching(items: List<String>, test: (String) -> Boolean): Int = items.filter(test).size
+  tests:
+    - { name: "by length", actual: 'countMatching(listOf("a", "bb", "ccc")) { it.length >= 2 }', expected: "2" }
+    - { name: "none match", actual: 'countMatching(listOf("a", "bb")) { it.isEmpty() }', expected: "0" }
+    - { name: "empty list", actual: "countMatching(emptyList()) { true }", expected: "0" }
+    - { name: "function reference", actual: 'countMatching(listOf("", "x", ""), String::isEmpty)', expected: "2" }
+  explanation: "`test` is already a function value, so it is passed straight to `filter`. `items.count(test)` is the library's own version."

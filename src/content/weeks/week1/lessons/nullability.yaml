@@ -1,0 +1,143 @@
+title: Nullable types
+summary: "How Kotlin tracks 'there may be no value' in the type system, and the four operators for dealing with it."
+blocks:
+  - prose: |
+      In Kotlin an ordinary type such as `String` can never hold `null`. To allow the absence of a value you add
+      a question mark: `String?` means "a `String`, or `null`".
+
+      The compiler then refuses to let you use a `String?` as if it were definitely a `String`. You have to say
+      what happens in the `null` case. Many standard functions that can fail to find something return a
+      nullable type: `find`, `firstOrNull`, `toIntOrNull`, and looking up a key in a map.
+  - example:
+      title: A nullable result
+      code: |
+        fun main() {
+            val marks = listOf(72, 38, 65)
+
+            val firstFail: Int? = marks.firstOrNull { it < 40 }
+            val firstHundred: Int? = marks.firstOrNull { it == 100 }
+
+            println(firstFail)
+            println(firstHundred)
+            println("12".toIntOrNull())
+            println("twelve".toIntOrNull())
+
+            // println(firstFail + 1)   // error: firstFail might be null
+        }
+  - prose: |
+      ## The four operators
+
+      | Operator | Name | Meaning |
+      |---|---|---|
+      | `a ?: b` | Elvis | `a` if it is not null, otherwise `b` |
+      | `a?.f()` | safe call | call `f` if `a` is not null, otherwise the result is null |
+      | `a!!` | not-null assertion | treat `a` as non-null; throw if it is null |
+      | `if (a != null)` | null check | inside the branch, `a` is treated as non-null |
+
+      The Elvis operator is the one you will use most: it supplies a default and turns a `T?` into a `T`.
+  - example:
+      title: Elvis, safe call, and a null check
+      code: |
+        fun initial(name: String?): String {
+            // Safe call: uppercase() only runs if name is not null.
+            val upper: String? = name?.uppercase()
+            // Elvis: supply a default for the null case.
+            return upper?.substring(0, 1) ?: "?"
+        }
+
+        fun lengthOf(name: String?): Int =
+            if (name != null) name.length else 0   // smart cast inside the branch
+
+        fun main() {
+            println(initial("tom"))
+            println(initial(null))
+            println(lengthOf("tom"))
+            println(lengthOf(null))
+            println(listOf("a", "bb").find { it.length > 5 }?.length ?: -1)
+        }
+  - haskell: |
+      `T?` plays the role of `Maybe T`: `null` is `Nothing`, and a plain value is `Just` that value with no
+      wrapper to write.
+
+      | Haskell | Kotlin |
+      |---|---|
+      | `Maybe String` | `String?` |
+      | `Nothing` / `Just "x"` | `null` / `"x"` |
+      | `fromMaybe "?" m` | `m ?: "?"` |
+      | `fmap length m` | `m?.length` |
+      | `m >>= f` (where `f` returns a `Maybe`) | `m?.let { f(it) }` |
+      | `fromJust m` | `m!!` |
+      | `find p xs`, `lookup k kvs` | `xs.find(p)`, `xs.firstOrNull(p)` |
+
+      ```haskell
+      fromMaybe "anonymous" (lookup "name" params)
+      ```
+
+      The difference is that `T?` is not a wrapper type: there is no `Just` to construct or pattern-match, and
+      the compiler inserts the checks ("smart casts") once you have tested for `null`.
+  - note:
+      title: Avoid !!
+      md: |
+        `!!` throws a `NullPointerException` when you are wrong. It is `fromJust`: fine in a quick experiment,
+        a liability in submitted code. If you have a sensible default, use `?:`. If you do not, decide what the
+        function should return when the value is missing.
+  - example:
+      title: Looking something up, with a default
+      code: |
+        val capitals = listOf("France" to "Paris", "Japan" to "Tokyo")
+
+        fun capitalOf(country: String): String? =
+            capitals.firstOrNull { it.first == country }?.second
+
+        fun main() {
+            println(capitalOf("Japan"))
+            println(capitalOf("Narnia"))
+            println(capitalOf("Narnia") ?: "unknown")
+            println("Capital: ${capitalOf("France") ?: "unknown"}")
+        }
+  - check:
+      id: nullability-c1
+      type: predict
+      title: Elvis and safe call
+      prompt: Evaluate each line from left to right.
+      code: |
+        fun main() {
+            val a: String? = "kotlin"
+            val b: String? = null
+            println(a?.length)
+            println(b?.length)
+            println(b?.length ?: 0)
+            println(a ?: "none")
+        }
+      expected: |
+        6
+        null
+        0
+        kotlin
+      explanation: "A safe call on `null` produces `null` without calling anything. `?:` replaces a `null` on its left with the value on its right, and leaves a non-null value alone."
+  - check:
+      id: nullability-c2
+      type: fill
+      title: Default value
+      prompt: "Fill the blank with the operator that makes the program print `guest`."
+      code: |
+        fun main() {
+            val names = listOf("ada", "grace")
+            val found: String? = names.find { it.startsWith("z") }
+            println(found ____ "guest")
+        }
+      accepted: ["?:"]
+      expectedOutput: "guest"
+      explanation: "`find` returns `null` because no name starts with z; the Elvis operator supplies the default."
+  - check:
+      id: nullability-c3
+      type: mc
+      title: Which type?
+      prompt: "Given `val xs: List<String>`, what is the type of `xs.firstOrNull()?.length`?"
+      options:
+        - "`Int`"
+        - "`Int?`"
+        - "`String?`"
+        - "It does not compile"
+      answer: 1
+      explanation: "`firstOrNull()` is a `String?`. A safe call on it gives `null` when the list is empty and the length otherwise, so the result is `Int?`."

@@ -1,0 +1,135 @@
+title: Values, variables and basic types
+summary: "val and var, the six types you need this week, and how much the compiler can infer for you."
+blocks:
+  - prose: |
+      A Kotlin program is a set of declarations in a `.kt` file. Execution starts at a function called `main`.
+      Inside a function you name values with `val` and `var`:
+
+      - `val` introduces a name that is bound once and never reassigned.
+      - `var` introduces a variable that can be assigned again later.
+
+      Reach for `val` by default. Almost everything in this week's exercise can be written without a single `var`.
+  - example:
+      title: val and var
+      code: |
+        fun main() {
+            val module = "COMP40009"
+            var attempts = 0
+            attempts = attempts + 1
+            attempts += 1
+            println(module)
+            println(attempts)
+            // module = "COMP40008"   // error: 'val' cannot be reassigned
+        }
+  - haskell: |
+      A `val` is what every Haskell binding already is: a name for a value. `var` has no direct Haskell
+      counterpart; it is real mutable state.
+
+      ```haskell
+      let moduleCode = "COMP40009"   -- Haskell: always immutable
+      ```
+
+      If your instinct is to write `val` everywhere and build new values instead of updating old ones,
+      keep that instinct. It is considered good Kotlin style too.
+  - prose: |
+      ## Basic types
+
+      The types you need this week are `Int`, `Double`, `Boolean`, `String`, and the two containers `Pair` and
+      `List` (each has its own lesson). A type annotation goes *after* the name, separated by a colon.
+  - example:
+      title: Annotations and inference
+      code: |
+        fun main() {
+            val count: Int = 3
+            val ratio: Double = 0.75
+            val ready: Boolean = true
+            val name: String = "Kotlin"
+
+            // The annotation can be left out: the compiler infers the same types.
+            val total = count * 2          // Int
+            val half = count / 2           // Int division: 1
+            val exact = count / 2.0        // Double: 1.5
+            val label = name + " " + total // String
+
+            println(total)
+            println(half)
+            println(exact)
+            println(label)
+        }
+  - prose: |
+      Two things to notice. Dividing an `Int` by an `Int` gives an `Int` (the remainder is dropped), exactly like
+      `div` in Haskell. And there are no implicit conversions between numeric types: to turn an `Int` into a
+      `Double` you call `.toDouble()`, and to turn a `String` into an `Int` you call `.toInt()`.
+  - haskell: |
+      Type annotations read `name: Type` where Haskell writes `name :: Type`. Inference works in both
+      languages, but Kotlin only infers *locally*: the types of function parameters must always be written out.
+
+      ```haskell
+      count :: Int
+      count = 3
+      ```
+
+      ```kotlin
+      val count: Int = 3
+      ```
+  - prose: |
+      ## String templates
+
+      Inside a string literal, `$name` inserts the value of a name and `${expression}` inserts the value of any
+      expression. This is the normal way to build output; you rarely need `+`.
+  - example:
+      title: String templates
+      code: |
+        fun main() {
+            val name = "Ada"
+            val marks = listOf(72, 65, 81)
+            println("Hello, $name!")
+            println("$name has ${marks.size} marks, best ${marks.max()}")
+            println("Is a first: ${marks.average() >= 70}")
+        }
+  - check:
+      id: values-and-types-c1
+      type: mc
+      title: Reassignment
+      prompt: Which line does the compiler reject?
+      code: |
+        fun main() {
+            val a = 1        // line 1
+            var b = 2        // line 2
+            b = a + b        // line 3
+            a = b            // line 4
+        }
+      options:
+        - Line 2
+        - Line 3
+        - Line 4
+        - None of them
+      answer: 2
+      explanation: "`a` is declared with `val`, so it cannot be assigned again. `b` is a `var`, so line 3 is fine."
+  - check:
+      id: values-and-types-c2
+      type: predict
+      title: Integer division
+      prompt: Mind the types of the two divisions.
+      code: |
+        fun main() {
+            val n = 7
+            println(n / 2)
+            println(n / 2.0)
+            println("n is ${n + 1}")
+        }
+      expected: |
+        3
+        3.5
+        n is 8
+      explanation: "`Int / Int` is integer division. As soon as one operand is a `Double` the result is a `Double`. The template evaluates `n + 1` before inserting it."
+  - check:
+      id: values-and-types-c3
+      type: fill
+      title: Inferred type
+      prompt: "Write the type that the compiler infers for `average`."
+      code: |
+        val scores = listOf(3, 4)
+        val average: ____ = scores.sum() / 2.0
+      accepted: ["Double"]
+      explanation: "`scores.sum()` is an `Int`, `2.0` is a `Double`, so the division is done in `Double`."

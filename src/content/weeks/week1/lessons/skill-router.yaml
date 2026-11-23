@@ -1,0 +1,132 @@
+title: Writing a router with a fallback
+summary: "Choosing which handler to call from part of the input, and what to return when nothing matches."
+blocks:
+  - prose: |
+      With several handlers written, something has to decide which one deals with a given message. That
+      decision is **routing**. The router is itself a function from `Message` to `Reply`: it works out the
+      key (for the bot, the command word), picks the handler for that key, and returns whatever the handler
+      returns.
+
+      A `when` on the key does it directly. The `else` branch is the fallback: a reply that says "nothing here"
+      in the reply's *kind*, not by throwing an exception.
+  - example:
+      title: A hard-coded router
+      code: |
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun hoursHandler(message: Message): Reply = Reply(Kind.ANSWER, "Open 9 to 5.")
+        fun wifiHandler(message: Message): Reply = Reply(Kind.ANSWER, "Use eduroam.")
+        fun whoHandler(message: Message): Reply = Reply(Kind.ANSWER, "You are ${message.sender}")
+
+        fun command(text: String): String = text.substringBefore(" ")
+
+        fun respond(message: Message): Reply = when (command(message.text)) {
+            "hours" -> hoursHandler(message)
+            "wifi" -> wifiHandler(message)
+            "who" -> whoHandler(message)
+            else -> Reply(Kind.UNKNOWN)
+        }
+
+        fun main() {
+            println(respond(Message("wifi")))
+            println(respond(Message("who am i", "ada")))
+            println(respond(Message("printer jammed")))
+        }
+  - prose: |
+      Three points about this function.
+
+      **The router passes the whole message on.** It only *looks at* the command; the handler receives the
+      original `Message`, arguments and sender included.
+
+      **Each branch calls a handler.** The router contains no reply text of its own apart from the fallback.
+      That is the modularity the spec talks about: each handler can be read and tested by itself.
+
+      **The fallback is a value.** `Reply(Kind.UNKNOWN)` uses the default empty text. The test for it checks
+      the kind, and possibly that the text is empty, so be exact about both.
+
+      ## Match on the right key
+
+      Decide precisely which part of the input is the key, and extract it with a function you have already
+      tested. For the bot the key is the first word, so `who am i` routes to `who`. Matching on the whole text
+      would be wrong the moment a message has arguments.
+  - example:
+      title: Testing a router
+      mode: test
+      code: |
+        import kotlin.test.Test
+        import kotlin.test.assertEquals
+
+        enum class Kind(val code: Int) { ANSWER(1), REFUSED(2), UNKNOWN(3) }
+        data class Message(val text: String, val sender: String = "")
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun hoursHandler(message: Message): Reply = Reply(Kind.ANSWER, "Open 9 to 5.")
+        fun command(text: String): String = text.substringBefore(" ")
+
+        fun respond(message: Message): Reply = when (command(message.text)) {
+            "hours" -> hoursHandler(message)
+            else -> Reply(Kind.UNKNOWN)
+        }
+
+        class RouterTest {
+            @Test
+            fun `routes a known command to its handler`() {
+                assertEquals(Reply(Kind.ANSWER, "Open 9 to 5."), respond(Message("hours")))
+            }
+
+            @Test
+            fun `arguments do not affect routing`() {
+                assertEquals(Kind.ANSWER, respond(Message("hours today")).kind)
+            }
+
+            @Test
+            fun `unknown commands get an empty UNKNOWN reply`() {
+                val reply = respond(Message("teleport"))
+                assertEquals(Kind.UNKNOWN, reply.kind)
+                assertEquals("", reply.text)
+            }
+        }
+  - haskell: |
+      The router is a `case` on the key with a wildcard for the fallback.
+
+      ```haskell
+      respond :: Message -> Reply
+      respond m = case command (text m) of
+        "hours" -> hoursHandler m
+        "wifi"  -> wifiHandler m
+        _       -> Reply Unknown ""
+      ```
+  - check:
+      id: skill-router-c1
+      type: fill
+      title: The fallback branch
+      prompt: "Complete the router so that an unrecognised command prints `UNKNOWN`."
+      code: |
+        enum class Kind { ANSWER, UNKNOWN }
+        data class Reply(val kind: Kind, val text: String = "")
+
+        fun respond(command: String): Reply = when (command) {
+            "ping" -> Reply(Kind.ANSWER, "pong")
+            else -> ____
+        }
+
+        fun main() {
+            println(respond("dance").kind)
+        }
+      accepted: ["Reply(Kind.UNKNOWN)", "Reply(Kind.UNKNOWN, \"\")"]
+      expectedOutput: "UNKNOWN"
+      explanation: "The fallback is an ordinary `Reply` value whose kind says that nothing matched. The text defaults to the empty string."
+  - check:
+      id: skill-router-c2
+      type: mc
+      title: What reaches the handler
+      prompt: "In `\"who\" -> whoHandler(message)`, why is the whole `message` passed rather than just the command word?"
+      options:
+        - "Because `when` requires it."
+        - "Because a handler's type is `(Message) -> Reply`, and it may need the arguments or the sender."
+        - "Because the command word has already been removed from the message."
+        - "It makes no difference; either would compile."
+      answer: 1
+      explanation: "Every handler has the same type so that the router can treat them uniformly, and the handler may need parts of the message that the router did not look at."

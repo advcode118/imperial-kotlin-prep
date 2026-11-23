@@ -1,0 +1,163 @@
+title: Closures and functions that return functions
+summary: "Lambdas remember the values around them. Using that to build functions from parameters, wrap functions, and compose them."
+blocks:
+  - prose: |
+      A lambda can use any name that is in scope where it is written, including the parameters of the function
+      that contains it. The lambda keeps those values for as long as it lives, even after the enclosing
+      function has returned. A function value together with the values it has captured is called a **closure**.
+
+      This is what lets a function *build and return* another function.
+  - example:
+      title: A function that returns a function
+      code: |
+        fun multiplier(factor: Int): (Int) -> Int {
+            return { x -> x * factor }      // captures factor
+        }
+
+        // The same thing with an expression body.
+        fun adder(n: Int): (Int) -> Int = { x -> x + n }
+
+        fun main() {
+            val triple = multiplier(3)
+            val addTen = adder(10)
+
+            println(triple(7))
+            println(addTen(7))
+            println(multiplier(2)(50))      // build, then call straight away
+            println(listOf(1, 2, 3).map(adder(100)))
+        }
+  - haskell: |
+      In Haskell you got this for free from currying: partially applying a two-argument function gives a
+      function of the remaining argument.
+
+      ```haskell
+      multiplier :: Int -> Int -> Int
+      multiplier factor x = x * factor
+
+      triple = multiplier 3
+      ```
+
+      Kotlin functions take all their arguments at once, so you write the two stages explicitly: an outer
+      function that takes the first argument and returns a lambda that takes the second.
+
+      ```kotlin
+      fun multiplier(factor: Int): (Int) -> Int = { x -> x * factor }
+
+      val triple = multiplier(3)
+      ```
+
+      Read the return type `(Int) -> Int` as the part of the Haskell signature after the first arrow.
+  - prose: |
+      ## Wrapping a function
+
+      The most useful functions-returning-functions take a function as well. They return a new function with
+      the **same type** as the one they were given, which does something extra before, after, or instead of
+      calling the original. Such a wrapper is often called a decorator; in this week's exercise it is called a
+      **filter**.
+
+      Because the wrapped function and the wrapper have the same type, the caller cannot tell them apart, and
+      wrappers can be stacked.
+  - example:
+      title: Wrappers with the same type as what they wrap
+      code: |
+        typealias Formatter = (String) -> String
+
+        // Does something after calling the wrapped function.
+        fun exclaim(wrapped: Formatter): Formatter = { s -> wrapped(s) + "!" }
+
+        // Decides whether to call the wrapped function at all.
+        fun onlyIfShort(limit: Int, wrapped: Formatter): Formatter = { s ->
+            if (s.length <= limit) wrapped(s) else "(too long)"
+        }
+
+        fun upper(s: String): String = s.uppercase()
+
+        fun main() {
+            val loud: Formatter = exclaim(::upper)
+            val guarded: Formatter = onlyIfShort(5, loud)
+
+            println(loud("hello"))
+            println(guarded("hello"))
+            println(guarded("hello there"))
+        }
+  - prose: |
+      Read `onlyIfShort(5, loud)` from the outside in, because that is the order things happen when the result
+      is called: the length check runs first, and only if it passes is `loud` called, which in turn calls
+      `upper` and then adds the exclamation mark.
+
+      ## Composition
+
+      Composing two functions is itself a function that returns a function.
+  - example:
+      title: Composition
+      code: |
+        fun <A, B, C> compose(f: (B) -> C, g: (A) -> B): (A) -> C = { x -> f(g(x)) }
+
+        fun main() {
+            val trim: (String) -> String = { it.trim() }
+            val length: (String) -> Int = { it.length }
+
+            val trimmedLength = compose(length, trim)
+            println(trimmedLength("  kotlin  "))
+
+            // Folding a list of wrappers over a starting function.
+            val steps: List<(Int) -> Int> = listOf({ it + 1 }, { it * 2 }, { it - 3 })
+            val pipeline = steps.fold({ x: Int -> x }) { acc, step -> { x -> step(acc(x)) } }
+            println(pipeline(5))
+        }
+  - haskell: |
+      `compose(f, g)` is `f . g`. Kotlin's standard library has no composition operator, so you either write
+      the lambda `{ x -> f(g(x)) }` on the spot or define a helper like the one above. The `<A, B, C>` before
+      the name declares type parameters, as lower-case type variables do in `(b -> c) -> (a -> b) -> a -> c`.
+  - check:
+      id: closures-c1
+      type: predict
+      title: Captured values
+      prompt: "Each call to `prefixer` captures a different `prefix`."
+      code: |
+        fun prefixer(prefix: String): (String) -> String = { s -> "$prefix$s" }
+
+        fun main() {
+            val re = prefixer("re")
+            val un = prefixer("un")
+            println(re("do"))
+            println(un(re("do")))
+            println(listOf("tie", "lock").map(un))
+        }
+      expected: |
+        redo
+        unredo
+        [untie, unlock]
+      explanation: "`re` and `un` are separate closures, each remembering its own `prefix`."
+  - check:
+      id: closures-c2
+      type: fill
+      title: Return type of a function factory
+      prompt: "Fill in the return type of `atLeast`."
+      code: |
+        fun atLeast(min: Int): ____ = { n -> n >= min }
+
+        fun main() {
+            println(listOf(3, 8, 12).filter(atLeast(5)))
+        }
+      accepted: ["(Int) -> Boolean"]
+      expectedOutput: "[8, 12]"
+      explanation: "`atLeast(5)` must be usable as a predicate on `Int`s, so it returns a function from `Int` to `Boolean`."
+  - check:
+      id: closures-c3
+      type: mc
+      title: Order of wrappers
+      prompt: "With the definitions below, what is `outer(\"x\")`?"
+      code: |
+        typealias F = (String) -> String
+        fun brackets(w: F): F = { s -> "[" + w(s) + "]" }
+        fun stars(w: F): F = { s -> "*" + w(s) + "*" }
+        val id: F = { it }
+        val outer: F = brackets(stars(id))
+      options:
+        - "`*[x]*`"
+        - "`[*x*]`"
+        - "`[x]`"
+        - "`*x*`"
+      answer: 1
+      explanation: "`brackets` is outermost, so its additions end up on the outside: it calls `stars(id)`, which produces `*x*`, and wraps that in brackets."
