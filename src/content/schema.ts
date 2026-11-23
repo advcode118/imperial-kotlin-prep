@@ -201,6 +201,8 @@ export interface Week {
   /** Short label of the assessed exercise. */
   exercise: string
   due: string
+  /** The deadline as an ISO instant, when it is known exactly (drives the countdown). */
+  dueAt?: string
   topics: string
   kind: 'ppt' | 'test'
   content?: WeekContent

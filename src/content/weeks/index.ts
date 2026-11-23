@@ -12,6 +12,7 @@ export const weeks: Week[] = [
     title: 'Kotlin syntax',
     exercise: 'Kotlin Web Server',
     due: 'Fri 27 Nov 2026, 19:00',
+    dueAt: '2026-11-27T19:00:00Z', // 19:00 in London, which is on GMT in November
     topics: 'Functions, basic types, strings, pairs and lists, function types, lambdas',
     kind: 'ppt',
     content: week1,

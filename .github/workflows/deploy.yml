@@ -23,9 +23,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       # Types, content schema and links, coverage doc, every Kotlin program
-      # against the real compiler, then the production build.
+      # against the real compiler, the production build, then the Playwright
+      # suite against that build: smoke tests plus axe on every main route in
+      # light and dark (no serious or critical violations, contrast included).
       - run: npm run check
+      # Lighthouse on the main routes (median of 3): perf >= 90, a11y >= 95,
+      # best practices >= 95. Reported but not a gate on deploy, because
+      # performance scores on shared CI runners vary from run to run; the
+      # recorded scores live in docs/design/SCORES.md.
+      - name: Lighthouse thresholds (informational)
+        continue-on-error: true
+        run: npm run check:lighthouse
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results
+          retention-days: 7
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:

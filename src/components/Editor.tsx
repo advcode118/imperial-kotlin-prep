@@ -1,69 +1,43 @@
-import CodeMirror from '@uiw/react-codemirror'
-import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language'
-import { kotlin } from '@codemirror/legacy-modes/mode/clike'
-import { EditorView } from '@codemirror/view'
-import { tags as t } from '@lezer/highlight'
+import { lazy, Suspense } from 'react'
 
-// Colours come from CSS variables, so one theme serves light and dark.
-const theme = EditorView.theme({
-  '&': { backgroundColor: 'var(--code-bg)', color: 'var(--code-fg)', fontSize: 'var(--code-size)' },
-  '&.cm-focused': { outline: 'none' },
-  '.cm-content': { fontFamily: 'var(--mono)', padding: '0.7rem 0', caretColor: 'var(--fg)' },
-  '.cm-line': { padding: '0 0.9rem 0 0.5rem' },
-  '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.6' },
-  '.cm-gutters': {
-    backgroundColor: 'var(--code-bg)',
-    color: 'var(--faint)',
-    border: 'none',
-    paddingLeft: '0.4rem',
-  },
-  '.cm-cursor': { borderLeftColor: 'var(--fg)' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'var(--selection) !important',
-  },
-  '.cm-matchingBracket': { backgroundColor: 'var(--selection)', outline: 'none' },
-})
+export interface EditorDiagnostic {
+  /** 1-based. */
+  line: number
+  col: number
+  message: string
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+}
 
-const colours = HighlightStyle.define([
-  { tag: [t.keyword, t.modifier, t.definitionKeyword, t.controlKeyword], color: 'var(--syn-keyword)' },
-  { tag: [t.string, t.special(t.string), t.character], color: 'var(--syn-string)' },
-  { tag: [t.number, t.bool, t.null, t.atom], color: 'var(--syn-number)' },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--syn-comment)', fontStyle: 'italic' },
-  { tag: [t.typeName, t.className, t.namespace], color: 'var(--syn-type)' },
-  { tag: [t.definition(t.variableName), t.function(t.variableName)], color: 'var(--syn-def)' },
-  { tag: [t.meta, t.annotation], color: 'var(--syn-meta)' },
-])
-
-const extensions = [StreamLanguage.define(kotlin), theme, syntaxHighlighting(colours)]
-
-interface Props {
+export interface EditorProps {
   value: string
   onChange?: (v: string) => void
   readOnly?: boolean
   maxHeight?: string
+  /** Fill the height of the parent (which is then the thing that is sized and resized). */
+  fill?: boolean
   label: string
+  /** Called on Cmd/Ctrl+Enter. */
+  onRun?: () => void
+  /** Compiler messages for this file, shown as gutter markers and underlines. */
+  diagnostics?: EditorDiagnostic[]
+  /** Move the cursor here; change `n` to repeat a jump to the same place. */
+  goto?: { line: number; col: number; n: number }
 }
 
-export function Editor({ value, onChange, readOnly, maxHeight = '32rem', label }: Props) {
+// CodeMirror is by far the largest dependency, so it is its own chunk and only
+// loads on pages that show an editor. Until it arrives the code is shown as plain text.
+const Impl = lazy(() => import('./EditorImpl'))
+
+export function Editor(props: EditorProps) {
   return (
-    <CodeMirror
-      className="editor"
-      aria-label={label}
-      value={value}
-      onChange={onChange}
-      readOnly={readOnly}
-      editable={!readOnly}
-      theme="none"
-      maxHeight={maxHeight}
-      extensions={extensions}
-      basicSetup={{
-        foldGutter: false,
-        highlightActiveLine: false,
-        highlightActiveLineGutter: false,
-        autocompletion: false,
-        searchKeymap: false,
-        tabSize: 4,
-      }}
-    />
+    <Suspense
+      fallback={
+        <pre className={`editor-fallback ${props.fill ? 'editor-fill' : ''}`} aria-label={props.label}>
+          {props.value}
+        </pre>
+      }
+    >
+      <Impl {...props} />
+    </Suspense>
   )
 }

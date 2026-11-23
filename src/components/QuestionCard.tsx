@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type {
   FillQuestion,
   McQuestion,
@@ -12,9 +12,10 @@ import { useKotlinRunner } from '../lib/runner'
 import { usePersistent, useProgress } from '../lib/store'
 import { Editor } from './Editor'
 import { Code, Markdown } from './Markdown'
-import { ExceptionLine, Messages, RunOutput, Unavailable } from './RunOutput'
+import { Diff, ExceptionLine, Messages, RunOutput, Running, Unavailable } from './RunOutput'
+import { RUN_KEYS } from './WorkView'
 
-const TYPE_LABEL: Record<Question['type'], string> = {
+export const TYPE_LABEL: Record<Question['type'], string> = {
   mc: 'Multiple choice',
   fill: 'Fill in the blank',
   predict: 'Predict the output',
@@ -38,7 +39,7 @@ function Mc({ q, onAttempt }: { q: McQuestion; onAttempt: (ok: boolean) => void 
   return (
     <>
       {q.code && <Code code={q.code} />}
-      <ol className="options" type="A">
+      <ol className="options">
         {q.options.map((o, i) => (
           <li key={i}>
             <label>
@@ -121,7 +122,7 @@ function Predict({ q, onAttempt }: { q: PredictQuestion; onAttempt: (ok: boolean
   const [value, setValue] = useState('')
   const [verdict, setVerdict] = useState<Verdict>('none')
   const [attempted, setAttempted] = useState(false)
-  const { state, run } = useKotlinRunner()
+  const { state, run, cancel } = useKotlinRunner()
   const lines = Math.max(2, q.expected.split('\n').length)
   return (
     <>
@@ -165,7 +166,7 @@ function Predict({ q, onAttempt }: { q: PredictQuestion; onAttempt: (ok: boolean
         )}
       </div>
       <VerdictLine verdict={verdict} wrong="That is not what it prints. Trace it again, or run it to see." />
-      <RunOutput state={state} />
+      <RunOutput state={state} onCancel={cancel} />
     </>
   )
 }
@@ -175,20 +176,21 @@ function CaseList({ results }: { results: CaseResult[] }) {
     <ul className="cases">
       {results.map((r) => (
         <li key={r.name} className={`case case-${r.status}`}>
-          <span className="case-mark">{r.status === 'pass' ? '✓' : r.status === 'missing' ? '–' : '✗'}</span>
+          <span className="case-mark" aria-hidden="true">
+            {r.status === 'pass' ? '✓' : r.status === 'missing' ? '–' : '✗'}
+          </span>
           <span className="case-body">
-            <span className="case-name">{r.name}</span>
-            {r.status === 'fail' && (
-              <span className="case-detail">
-                expected <code>{r.expected}</code> but got <code>{r.actual}</code>
-              </span>
-            )}
+            <span className="case-name">
+              <span className="sr-only">{r.status === 'pass' ? 'Passed: ' : r.status === 'missing' ? 'Did not run: ' : 'Failed: '}</span>
+              {r.name}
+            </span>
+            {r.status === 'fail' && <Diff expected={r.expected ?? ''} actual={r.actual ?? ''} />}
             {r.status === 'error' && (
               <span className="case-detail">
-                threw <code>{r.error}</code>
+                <span className="case-threw">Threw</span> <code>{r.error}</code>
               </span>
             )}
-            {r.status === 'missing' && <span className="case-detail">did not run</span>}
+            {r.status === 'missing' && <span className="case-detail">Did not run</span>}
           </span>
         </li>
       ))}
@@ -196,32 +198,51 @@ function CaseList({ results }: { results: CaseResult[] }) {
   )
 }
 
-function Write({ q, onAttempt }: { q: WriteQuestion; onAttempt: (ok: boolean) => void }) {
+/** Everything a write-a-function question needs, whichever layout shows it. */
+export function useWriteDrill(q: WriteQuestion, onAttempt: (ok: boolean) => void) {
   const [draft, setDraft] = usePersistent<string>(`draft:${q.id}`, q.starter)
-  const { state, run, clear } = useKotlinRunner()
+  const { state, run, clear, cancel } = useKotlinRunner()
+  const [goto, setGoto] = useState<{ line: number; col: number; n: number }>()
 
   const submit = async () => {
     const result = await run([
       { name: SOLUTION_FILE, text: draft },
       { name: HARNESS_FILE, text: buildHarness(q.tests, q.support) },
     ])
-    if (!result) return // compiler unreachable: not an attempt
+    if (!result) return // compiler unreachable or cancelled: not an attempt
     const parsed = parseHarness(result.stdout, q.tests)
     onAttempt(!result.hasErrors && parsed.results.every((r) => r.status === 'pass'))
   }
+  const reset = () => {
+    setDraft(q.starter)
+    clear()
+  }
+
+  const diagnostics = useMemo(
+    () => (state.status === 'done' ? state.result.messages.filter((m) => m.file === SOLUTION_FILE) : []),
+    [state],
+  )
 
   let report = null
-  if (state.status === 'running') report = <div className="out out-quiet">Compiling and running the tests…</div>
+  let summary: string | undefined
+  if (state.status === 'running')
+    report = <Running since={state.since} what="Compiling and running the tests…" onCancel={cancel} />
   else if (state.status === 'unavailable') report = <Unavailable reason={state.reason} />
   else if (state.status === 'done') {
     const r = state.result
     const errors = r.messages.filter((m) => m.severity === 'ERROR')
     if (errors.length) {
       const mine = errors.filter((m) => m.file === SOLUTION_FILE)
+      summary = 'error'
       report = (
         <div className="out out-bad" role="status">
           <p className="out-title">Does not compile</p>
-          <Messages messages={mine.length ? mine : errors} file={SOLUTION_FILE} hiddenFile={HARNESS_FILE} />
+          <Messages
+            messages={mine.length ? mine : errors}
+            file={SOLUTION_FILE}
+            hiddenFile={HARNESS_FILE}
+            onGoto={(m) => setGoto((g) => ({ line: m.line, col: m.col, n: (g?.n ?? 0) + 1 }))}
+          />
           {!mine.length && (
             <p className="out-sub">
               Your code compiles on its own, but the tests cannot call it. Check the function name, parameter
@@ -234,6 +255,7 @@ function Write({ q, onAttempt }: { q: WriteQuestion; onAttempt: (ok: boolean) =>
       const parsed = parseHarness(r.stdout, q.tests)
       const passed = parsed.results.filter((c) => c.status === 'pass').length
       const all = passed === q.tests.length
+      summary = `${passed}/${q.tests.length}`
       report = (
         <div className={`out ${all ? 'out-good' : 'out-bad'}`} role="status">
           <p className="out-title">
@@ -256,29 +278,70 @@ function Write({ q, onAttempt }: { q: WriteQuestion; onAttempt: (ok: boolean) =>
     }
   }
 
+  return {
+    draft,
+    setDraft,
+    running: state.status === 'running',
+    changed: draft !== q.starter,
+    submit,
+    reset,
+    cancel,
+    report,
+    summary,
+    diagnostics,
+    goto,
+  }
+}
+
+export type WriteDrill = ReturnType<typeof useWriteDrill>
+
+export function WriteEditor({ q, w }: { q: WriteQuestion; w: WriteDrill }) {
+  return (
+    <div className="editor-box">
+      <Editor
+        fill
+        value={w.draft}
+        onChange={w.setDraft}
+        onRun={w.submit}
+        diagnostics={w.diagnostics}
+        goto={w.goto}
+        label={`Your answer to ${q.title}`}
+      />
+    </div>
+  )
+}
+
+export function WriteActions({ q, w, hint = true }: { q: WriteQuestion; w: WriteDrill; hint?: boolean }) {
+  return (
+    <div className="q-actions">
+      <button className="btn" disabled={w.running} onClick={w.submit}>
+        {w.running ? 'Running…' : 'Run tests'}
+        {!w.running && hint && <kbd className="btn-kbd">{RUN_KEYS}</kbd>}
+      </button>
+      {w.changed && !w.running && (
+        <button
+          className="btn-link"
+          onClick={() => {
+            if (window.confirm('Replace your code with the starter?')) w.reset()
+          }}
+        >
+          Reset to starter
+        </button>
+      )}
+      <span className="q-hint">
+        {q.tests.length} hidden tests{w.changed ? ' · draft saved' : ''}
+      </span>
+    </div>
+  )
+}
+
+function Write({ q, onAttempt }: { q: WriteQuestion; onAttempt: (ok: boolean) => void }) {
+  const w = useWriteDrill(q, onAttempt)
   return (
     <>
-      <div className="editor-frame">
-        <Editor value={draft} onChange={setDraft} label={`Your answer to ${q.title}`} />
-      </div>
-      <div className="q-actions">
-        <button className="btn" disabled={state.status === 'running'} onClick={submit}>
-          {state.status === 'running' ? 'Running…' : 'Run tests'}
-        </button>
-        {draft !== q.starter && (
-          <button
-            className="btn-link"
-            onClick={() => {
-              setDraft(q.starter)
-              clear()
-            }}
-          >
-            Reset to starter
-          </button>
-        )}
-        <span className="q-hint">{q.tests.length} hidden tests</span>
-      </div>
-      {report}
+      <WriteEditor q={q} w={w} />
+      <WriteActions q={q} w={w} />
+      {w.report}
     </>
   )
 }
@@ -296,39 +359,73 @@ function solutionMarkdown(q: Question): string {
   }
 }
 
+export const STATUS_LABEL = { passed: 'Answered correctly', tried: 'Attempted', none: 'Not attempted' } as const
+
+/** Small text chip: status is always words, never colour alone. */
+export function StatusChip({ status }: { status: 'passed' | 'tried' | undefined }) {
+  if (!status) return null
+  return <span className={`chip chip-${status}`}>{status === 'passed' ? '✓ Correct' : 'Attempted'}</span>
+}
+
+export function SolutionReveal({
+  q,
+  attempted,
+  revealed,
+  onToggle,
+}: {
+  q: Question
+  attempted: boolean
+  revealed: boolean
+  onToggle: () => void
+}) {
+  return (
+    <>
+      <button className="btn-link" aria-expanded={revealed} onClick={onToggle}>
+        {revealed ? 'Hide solution' : attempted ? 'Show solution' : 'Show solution without attempting'}
+      </button>
+      {revealed && (
+        <div className="solution">
+          <Markdown md={solutionMarkdown(q)} />
+        </div>
+      )}
+    </>
+  )
+}
+
 export function QuestionCard({
   q,
   number,
   lessonLink,
+  openLink,
+  heading = 'h3',
 }: {
   q: Question
   number?: string
   lessonLink?: { href: string; title: string }
+  /** Link to the one-at-a-time work view, shown in list mode. */
+  openLink?: string
+  heading?: 'h2' | 'h3'
 }) {
   const { progress, recordQuestion } = useProgress()
   const [attempted, setAttempted] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const status = progress.questions[q.id]
+  const H = heading
   const onAttempt = (ok: boolean) => {
     setAttempted(true)
     if (ok) setRevealed(true)
     recordQuestion(q.id, ok)
   }
   return (
-    <section className="question" id={q.id}>
+    <section className="question" id={q.id} aria-labelledby={`${q.id}-title`}>
       <header className="q-head">
-        <h3>
+        <H id={`${q.id}-title`}>
           {number && <span className="q-number">{number}</span>}
-          {q.title}
-        </h3>
+          {openLink ? <a href={openLink}>{q.title}</a> : q.title}
+        </H>
         <span className="q-meta">
           {TYPE_LABEL[q.type]}
-          {status === 'passed' && (
-            <span className="tick" title="Answered correctly">
-              {' '}
-              ✓
-            </span>
-          )}
+          <StatusChip status={status} />
         </span>
       </header>
       <Markdown md={q.prompt} />
@@ -337,20 +434,13 @@ export function QuestionCard({
       {q.type === 'predict' && <Predict q={q} onAttempt={onAttempt} />}
       {q.type === 'write' && <Write q={q} onAttempt={onAttempt} />}
       <div className="q-foot">
-        <button className="btn-link" onClick={() => setRevealed((r) => !r)}>
-          {revealed ? 'Hide solution' : attempted ? 'Show solution' : 'Show solution without attempting'}
-        </button>
+        <SolutionReveal q={q} attempted={attempted} revealed={revealed} onToggle={() => setRevealed((r) => !r)} />
         {lessonLink && (
           <a className="q-lesson" href={lessonLink.href}>
             Lesson: {lessonLink.title}
           </a>
         )}
       </div>
-      {revealed && (
-        <div className="solution">
-          <Markdown md={solutionMarkdown(q)} />
-        </div>
-      )}
     </section>
   )
 }

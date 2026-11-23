@@ -37,6 +37,20 @@ function write<T>(key: string, value: T) {
   listeners.forEach((l) => l())
 }
 
+/** Read without subscribing. */
+export const peek = <T>(key: string, initial: T): T => read(key, initial)
+
+/** Write without notifying subscribers (for high-frequency values such as scroll position). */
+export function poke<T>(key: string, value: T) {
+  const raw = JSON.stringify(value)
+  cache.set(key, { raw, value })
+  try {
+    localStorage.setItem(PREFIX + key, raw)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 const subscribe = (l: () => void) => {
   listeners.add(l)
   window.addEventListener('storage', l)

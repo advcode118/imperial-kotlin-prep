@@ -6,7 +6,8 @@ import { useKotlinRunner } from '../lib/runner'
 export function RunnableExample({ code, title }: { code: string; title?: string }) {
   const original = code.replace(/\n+$/, '')
   const [value, setValue] = useState(original)
-  const { state, run, clear } = useKotlinRunner()
+  const { state, run, clear, cancel } = useKotlinRunner()
+  const go = () => run([{ name: 'Main.kt', text: value }])
   return (
     <figure className="example">
       <figcaption>
@@ -26,14 +27,14 @@ export function RunnableExample({ code, title }: { code: string; title?: string 
           <button
             className="btn"
             disabled={state.status === 'running'}
-            onClick={() => run([{ name: 'Main.kt', text: value }])}
+            onClick={go}
           >
             {state.status === 'running' ? 'Running…' : 'Run'}
           </button>
         </span>
       </figcaption>
-      <Editor value={value} onChange={setValue} label={title ?? 'Kotlin example'} />
-      <RunOutput state={state} />
+      <Editor value={value} onChange={setValue} onRun={go} label={title ?? 'Kotlin example'} />
+      <RunOutput state={state} onCancel={cancel} />
     </figure>
   )
 }

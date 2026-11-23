@@ -1,0 +1,165 @@
+/*
+ * Design tokens. One neutral paper/ink palette and one accent (ink blue),
+ * in light and dark. Every text colour here is checked against every
+ * background it is used on: >= 4.5:1 for text, >= 3:1 for UI edges
+ * (see docs/design/REDESIGN.md and tests/a11y.spec.ts).
+ */
+
+/* Latin subsets only, self-hosted. The two faces used above the fold are preloaded in index.html. */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-italic.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  --serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Type scale (1.2 ratio on a 17px root) and a 4px-based spacing scale. */
+  --t-xs: 0.74rem;
+  --t-sm: 0.82rem;
+  --t-base: 1rem;
+  --t-lg: 1.2rem;
+  --t-xl: 1.44rem;
+  --t-2xl: 2.07rem;
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --radius: 5px;
+  --code-size: 0.86rem;
+  --sidebar: 17.5rem;
+  --topbar: 3rem;
+  --measure: 41rem; /* about 70 characters of the body serif */
+
+  --bg: #fbfaf7;
+  --bg-raised: #f3f1ea;
+  --fg: #1f1d1a;
+  --muted: #55524c;
+  --faint: #65625b; /* smallest labels: 5.6:1 on --bg, 5.1:1 on --bg-raised */
+  --rule: #e2dfd6;
+  --border-strong: #8a867d; /* input and control edges: 3.4:1 on --bg */
+  --accent: #2c5777;
+  --accent-soft: #e6edf2;
+  --on-accent: #ffffff;
+  --code-bg: #f3f1ea;
+  --code-fg: #26241f;
+  --selection: #d5e2ec;
+  --good: #2a6340;
+  --good-bg: #ebf3ec;
+  --bad: #93372b;
+  --bad-bg: #f8ecea;
+  --warn: #7a560d;
+  --warn-bg: #f8f1de;
+  --haskell: #5a4785;
+  --haskell-bg: #f1eef6;
+  --mark-bad: #f0c9c2;
+  --mark-good: #cfe5d4;
+
+  --syn-keyword: #7a3e9d;
+  --syn-string: #36652f;
+  --syn-number: #8f5113;
+  --syn-comment: #66635b;
+  --syn-type: #2c5777;
+  --syn-def: #1f1d1a;
+  --syn-meta: #7a560d;
+  color-scheme: light;
+}
+
+/* The dark palette is written once (as a mixin-style block) and applied for an explicit choice and for the system setting. */
+:root[data-theme='dark'] {
+  --bg: #17181a;
+  --bg-raised: #202124;
+  --fg: #e2dfd8;
+  --muted: #b3afa7;
+  --faint: #a09c94; /* 6.6:1 on --bg */
+  --rule: #303136;
+  --border-strong: #75726b; /* 3.6:1 on --bg */
+  --accent: #9cc0db;
+  --accent-soft: #232d36;
+  --on-accent: #101214;
+  --code-bg: #1f2023;
+  --code-fg: #dcd9d2;
+  --selection: #2f4050;
+  --good: #95c9a5;
+  --good-bg: #1c2a21;
+  --bad: #eaa093;
+  --bad-bg: #2e1f1d;
+  --warn: #dfbc68;
+  --warn-bg: #2c2618;
+  --haskell: #baaadf;
+  --haskell-bg: #24212d;
+  --mark-bad: #5a2a24;
+  --mark-good: #24452f;
+  --syn-keyword: #cda3e4;
+  --syn-string: #a6ca96;
+  --syn-number: #dfab72;
+  --syn-comment: #a09c94;
+  --syn-type: #9cc0db;
+  --syn-def: #ebe8e1;
+  --syn-meta: #dfbc68;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #17181a;
+    --bg-raised: #202124;
+    --fg: #e2dfd8;
+    --muted: #b3afa7;
+    --faint: #a09c94;
+    --rule: #303136;
+    --border-strong: #75726b;
+    --accent: #9cc0db;
+    --accent-soft: #232d36;
+    --on-accent: #101214;
+    --code-bg: #1f2023;
+    --code-fg: #dcd9d2;
+    --selection: #2f4050;
+    --good: #95c9a5;
+    --good-bg: #1c2a21;
+    --bad: #eaa093;
+    --bad-bg: #2e1f1d;
+    --warn: #dfbc68;
+    --warn-bg: #2c2618;
+    --haskell: #baaadf;
+    --haskell-bg: #24212d;
+    --mark-bad: #5a2a24;
+    --mark-good: #24452f;
+    --syn-keyword: #cda3e4;
+    --syn-string: #a6ca96;
+    --syn-number: #dfab72;
+    --syn-comment: #a09c94;
+    --syn-type: #9cc0db;
+    --syn-def: #ebe8e1;
+    --syn-meta: #dfbc68;
+    color-scheme: dark;
+  }
+}

@@ -103,6 +103,8 @@ function toException(raw: RawException | null | undefined, fileNames: string[]):
 export interface ExecuteOptions {
   timeoutMs?: number
   version?: string
+  /** Abort the request early (the reader pressed Cancel). */
+  signal?: AbortSignal
 }
 
 export async function execute(
@@ -118,6 +120,9 @@ export async function execute(
   })
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000)
+  const onAbort = () => ctrl.abort()
+  if (opts.signal?.aborted) ctrl.abort()
+  opts.signal?.addEventListener('abort', onAbort)
   let json: any
   try {
     const res = await fetch(`${API}/api/${version}/compiler/${mode}`, {
@@ -133,6 +138,7 @@ export async function execute(
     throw new CompilerUnavailable(e instanceof Error ? e.message : String(e))
   } finally {
     clearTimeout(timer)
+    opts.signal?.removeEventListener('abort', onAbort)
   }
   if (!json || typeof json !== 'object' || !json.errors) {
     throw new CompilerUnavailable('unexpected response from the compiler server')

@@ -1,4 +1,5 @@
 import { Markdown } from '../components/Markdown'
+import { Pager } from '../components/Pager'
 import { MissingWeek, useWeek } from './common'
 
 export function TechniquePage() {
@@ -21,6 +22,9 @@ export function TechniquePage() {
           <Markdown md={s.md} />
         </section>
       ))}
+      <footer className="lesson-foot">
+        <Pager week={week} />
+      </footer>
     </article>
   )
 }

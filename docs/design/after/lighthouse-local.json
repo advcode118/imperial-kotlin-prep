@@ -1,0 +1,47 @@
+{
+  "base": "http://localhost:4173/imperial-kotlin-prep/",
+  "preset": "desktop",
+  "runs": 3,
+  "rows": [
+    {
+      "route": "home",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 207,
+      "lcpMs": 207,
+      "tbtMs": 0,
+      "contrast": "pass"
+    },
+    {
+      "route": "lesson",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 205,
+      "lcpMs": 205,
+      "tbtMs": 3,
+      "contrast": "pass"
+    },
+    {
+      "route": "drills",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 204,
+      "lcpMs": 746,
+      "tbtMs": 0,
+      "contrast": "pass"
+    },
+    {
+      "route": "pre-ppt",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 203,
+      "lcpMs": 203,
+      "tbtMs": 0,
+      "contrast": "pass"
+    }
+  ]
+}

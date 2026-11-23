@@ -18,7 +18,7 @@ const fmt = (ms: number) => {
   return `${h}:${pad(m)}:${pad(s % 60)}`
 }
 
-export function Timer({ id, minutes }: { id: string; minutes: number }) {
+export function useTimer(id: string, minutes: number) {
   const full = minutes * 60 * 1000
   const [t, setT] = usePersistent<TimerState>(`timer:${id}`, { remaining: full, startedAt: null })
   const [now, setNow] = useState(() => Date.now())
@@ -33,48 +33,58 @@ export function Timer({ id, minutes }: { id: string; minutes: number }) {
 
   const left = running ? t.remaining - (now - t.startedAt!) : t.remaining
   const over = left <= 0
-  const warn = !over && left <= WARN_MS
-  const untouched = !running && t.remaining === full
+  return {
+    clock: fmt(left),
+    running,
+    over,
+    warn: !over && left <= WARN_MS,
+    untouched: !running && t.remaining === full,
+    start: () => setT({ remaining: t.remaining, startedAt: Date.now() }),
+    pause: () => setT({ remaining: Math.max(0, t.remaining - (Date.now() - t.startedAt!)), startedAt: null }),
+    reset: () => setT({ remaining: full, startedAt: null }),
+  }
+}
 
+/** The two-hour clock, as one quiet line that fits in a toolbar. */
+export function Timer({ id, minutes }: { id: string; minutes: number }) {
+  const t = useTimer(id, minutes)
+  const note = t.over
+    ? 'Time is up. Stop, run the tests once more, and review.'
+    : t.warn
+      ? 'Fifteen minutes or less. Make sure it compiles.'
+      : t.untouched
+        ? `${minutes / 60}-hour practice sitting`
+        : t.running
+          ? 'Running'
+          : 'Paused'
   return (
-    <div className={`timer ${warn ? 'timer-warn' : ''} ${over ? 'timer-over' : ''}`}>
-      <div className="timer-main">
-        <span className="timer-label">Timed attempt</span>
-        <span className="timer-clock" role="timer" aria-live="off">
-          {fmt(left)}
-        </span>
-        <span className="timer-note">
-          {over
-            ? 'Time is up. Stop, run the tests once more, and review.'
-            : warn
-              ? 'Fifteen minutes or less. Make sure it compiles.'
-              : untouched
-                ? `${minutes / 60} hours, as a practice sitting.`
-                : running
-                  ? 'Running.'
-                  : 'Paused.'}
-        </span>
-      </div>
-      <div className="timer-actions">
-        {!over &&
-          (running ? (
-            <button
-              className="btn"
-              onClick={() => setT({ remaining: Math.max(0, t.remaining - (Date.now() - t.startedAt!)), startedAt: null })}
-            >
-              Pause
-            </button>
-          ) : (
-            <button className="btn" onClick={() => setT({ remaining: t.remaining, startedAt: Date.now() })}>
-              {untouched ? 'Start' : 'Resume'}
-            </button>
-          ))}
-        {!untouched && (
-          <button className="btn-link" onClick={() => setT({ remaining: full, startedAt: null })}>
-            Reset
+    <div className={`timer ${t.warn ? 'timer-warn' : ''} ${t.over ? 'timer-over' : ''}`}>
+      <span className="timer-clock" role="timer" aria-live="off" aria-label={`Time left ${t.clock}`}>
+        {t.clock}
+      </span>
+      <span className="timer-note" role={t.warn || t.over ? 'status' : undefined}>
+        {note}
+      </span>
+      {!t.over &&
+        (t.running ? (
+          <button className="btn btn-quiet btn-small" onClick={t.pause}>
+            Pause
           </button>
-        )}
-      </div>
+        ) : (
+          <button className="btn btn-small" onClick={t.start}>
+            {t.untouched ? 'Start timer' : 'Resume'}
+          </button>
+        ))}
+      {!t.untouched && (
+        <button
+          className="btn-link"
+          onClick={() => {
+            if (window.confirm('Reset the timer to the full two hours?')) t.reset()
+          }}
+        >
+          Reset
+        </button>
+      )}
     </div>
   )
 }

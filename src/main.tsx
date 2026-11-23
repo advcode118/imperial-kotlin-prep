@@ -1,17 +1,19 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
-import '@fontsource-variable/source-serif-4'
-import '@fontsource-variable/source-serif-4/wght-italic.css'
-import '@fontsource-variable/inter'
-import '@fontsource-variable/jetbrains-mono'
+import './styles/tokens.css'
 import './styles/site.css'
-import { App } from './App'
+import './styles/app.css'
+import { App, preloadRoute } from './App'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </StrictMode>,
-)
+const render = () =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </StrictMode>,
+  )
+
+// Wait for the opening page's chunk (already being fetched, see index.html) so the first paint is the page itself.
+preloadRoute(window.location.hash).then(render, render)

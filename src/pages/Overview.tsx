@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Markdown } from '../components/Markdown'
+import { Pager } from '../components/Pager'
 import { lessonsOf, paths } from '../content'
 import { useProgress } from '../lib/store'
 import { MissingWeek, useWeek } from './common'
@@ -123,6 +124,9 @@ export function OverviewPage() {
           </tbody>
         </table>
       </div>
+      <footer className="lesson-foot">
+        <Pager week={week} />
+      </footer>
     </article>
   )
 }

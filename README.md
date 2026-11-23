@@ -42,7 +42,10 @@ Other commands:
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | Everything CI runs: type check, content checks, coverage doc check, Kotlin checks, production build |
+| `npm run check` | Everything CI gates on: type check, content checks, coverage doc check, Kotlin checks, production build, then the Playwright suite (smoke tests and axe) against that build |
+| `npm run test:e2e` | Playwright only: smoke tests and the axe accessibility checks in light and dark, against `dist/` served by `vite preview` (run `npm run build` first; the compiler is mocked). First time: `npx playwright install chromium` |
+| `npm run check:lighthouse` | Lighthouse on the four main routes, median of three; fails under performance 90, accessibility 95 or best practices 95. Add `-- --mobile` for the slow-4G preset |
+| `npm run screenshots` | Regenerates the screenshots in `docs/design/after/` from a running preview |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run check:content` | Schema, unique ids, checklist references, internal links |
 | `npm run check:kotlin` | Runs every example, predicted output, fill-in answer, reference solution and the pre-PPT project against the real compiler |
@@ -65,6 +68,8 @@ src/components, src/pages      the application; knows nothing about any particul
 scripts/                       the checks
 docs/COVERAGE.md               concept -> lessons -> drills -> pre-PPT part (generated)
 docs/ADDING_A_WEEK.md          how to add Week 2
+docs/design/                   audit, redesign rationale, scores, before/after screenshots
+tests/                         Playwright smoke tests and axe accessibility checks
 ```
 
 The site is a static Vite + React + TypeScript build using hash routing, deployed to GitHub Pages by

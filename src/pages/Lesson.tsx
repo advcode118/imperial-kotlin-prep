@@ -1,4 +1,5 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+import { Pager } from '../components/Pager'
 import { Markdown } from '../components/Markdown'
 import { QuestionCard } from '../components/QuestionCard'
 import { RunnableExample } from '../components/RunnableExample'
@@ -36,15 +37,12 @@ export function LessonPage() {
   const week = useWeek()
   const { lessonId } = useParams()
   const { progress, markRead } = useProgress()
-  const navigate = useNavigate()
   if (!week) return <MissingWeek />
   const lessons = lessonsOf(week)
   const index = lessons.findIndex((l) => l.id === lessonId)
   if (index < 0) return <MissingWeek />
   const lesson = lessons[index]
   const group = week.content.groups.find((g) => g.lessons.includes(lesson))!
-  const prev = lessons[index - 1]
-  const next = lessons[index + 1]
   const related = week.content.drills.filter((d) => d.lesson === lesson.id)
   const isRead = !!progress.read[lesson.id]
   let checks = 0
@@ -67,7 +65,13 @@ export function LessonPage() {
             {related.map((d) => (
               <li key={d.id}>
                 <Link to={paths.drill(week.id, d)}>{d.title}</Link>
-                {progress.questions[d.id] === 'passed' && <span className="tick"> ✓</span>}
+                {progress.questions[d.id] === 'passed' && (
+                  <span className="tick">
+                    {' '}
+                    <span aria-hidden="true">✓</span>
+                    <span className="sr-only">answered correctly</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -79,32 +83,7 @@ export function LessonPage() {
           <input type="checkbox" checked={isRead} onChange={(e) => markRead(lesson.id, e.target.checked)} />
           I have read this lesson
         </label>
-        <div className="pager">
-          {prev ? <Link to={paths.lesson(week.id, prev.id)}>← {prev.title}</Link> : <span />}
-          {next ? (
-            <a
-              href={`#${paths.lesson(week.id, next.id)}`}
-              onClick={(e) => {
-                e.preventDefault()
-                markRead(lesson.id)
-                navigate(paths.lesson(week.id, next.id))
-              }}
-            >
-              {next.title} →
-            </a>
-          ) : (
-            <a
-              href={`#${paths.drills(week.id)}`}
-              onClick={(e) => {
-                e.preventDefault()
-                markRead(lesson.id)
-                navigate(paths.drills(week.id))
-              }}
-            >
-              Drill book →
-            </a>
-          )}
-        </div>
+        <Pager week={week} />
       </footer>
     </article>
   )
