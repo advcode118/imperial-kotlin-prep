@@ -400,8 +400,8 @@ closing:
     md: |
       This exercise is not marked by anyone. To judge your own attempt in the terms the lab uses:
 
-      - Does the file **compile**? This matters more than anything else. In the lab, a submission that does
-        not compile is capped at the lowest band however much of it is right.
+      - Does the file **compile**? This matters more than anything else. In the lab, a submission that fails
+        to compile cannot score above an E, however much of it is right.
       - How many of the Part 1 and Part 2 tests pass?
       - Is the code tidy: short functions, helpers reused instead of repeated, names that say what things
         are?

@@ -116,13 +116,28 @@ for (const { id: w, content: c } of loadWeeks()) {
       }
     } else if (q.type === 'write') {
       const harness: SourceFile = { name: HARNESS_FILE, text: buildHarness(q.tests, q.support) }
+      // Every result row must carry a declared test name, once each, and every declared test must report.
+      const rows = (stdout: string, parsed: ReturnType<typeof parseHarness>): string | null => {
+        if (!parsed.finished) return 'harness did not finish'
+        const declared = q.tests.map((t) => t.name)
+        const printed = stdout
+          .split('\n')
+          .map((l) => /##(?:PASS|FAIL|ERROR)\t([^\t]*)/.exec(l)?.[1])
+          .filter((n): n is string => n !== undefined)
+        const stray = printed.filter((n) => !declared.includes(n))
+        if (stray.length) return `result rows with undeclared names: ${stray.join('; ')}`
+        if (printed.length !== declared.length) return `expected ${declared.length} result rows, got ${printed.length}`
+        const silent = parsed.results.filter((t) => t.status === 'missing' || t.name === '')
+        return silent.length ? `tests with no result row: ${silent.map((t) => t.name).join('; ')}` : null
+      }
       job(`${label} (reference solution passes hidden tests)`, async () => {
         const r = await run([{ name: SOLUTION_FILE, text: q.solution }, harness], 'run')
         if (r.hasErrors) return `does not compile: ${errorsOf(r)}`
         if (r.exception) return `threw ${r.exception.name}: ${r.exception.message}`
         const parsed = parseHarness(r.stdout, q.tests)
         const failing = parsed.results.filter((t) => t.status !== 'pass')
-        if (!parsed.finished) return 'harness did not finish'
+        const rowError = rows(r.stdout, parsed)
+        if (rowError) return rowError
         return failing.length
           ? failing.map((t) => `${t.name}: ${t.status} expected=${t.expected} actual=${t.actual} ${t.error ?? ''}`).join('; ')
           : null
@@ -131,6 +146,8 @@ for (const { id: w, content: c } of loadWeeks()) {
         const r = await run([{ name: SOLUTION_FILE, text: q.starter }, harness], 'run')
         if (r.hasErrors) return `starter does not compile: ${errorsOf(r)}`
         const parsed = parseHarness(r.stdout, q.tests)
+        const rowError = rows(r.stdout, parsed)
+        if (rowError) return rowError
         const passing = parsed.results.filter((t) => t.status === 'pass')
         return passing.length ? `starter already passes: ${passing.map((t) => t.name).join('; ')}` : null
       })
@@ -152,6 +169,7 @@ for (const { id: w, content: c } of loadWeeks()) {
     const failing = r.tests.filter((t) => t.status !== 'OK')
     if (failing.length) return `tests failed: ${failing.map((t) => `${t.name} (${t.message})`).join('; ')}`
     const missing = p.tests.filter((t) => !r.tests.some((x) => x.name === t.name))
+    if (r.tests.length !== p.tests.length) return `expected ${p.tests.length} result rows, got ${r.tests.length}`
     return missing.length ? `tests did not run: ${missing.map((t) => t.name).join('; ')}` : null
   })
   job(`${w} pre-PPT: starter compiles with TODO()s and fails every core test`, async () => {
@@ -159,6 +177,8 @@ for (const { id: w, content: c } of loadWeeks()) {
     if (r.hasErrors) return `starter does not compile: ${errorsOf(r)}`
     const passing = r.tests.filter((t) => t.status === 'OK')
     if (passing.length) return `starter already passes: ${passing.map((t) => t.name).join('; ')}`
+    const stray = r.tests.filter((t) => !p.tests.some((x) => x.name === t.name))
+    if (stray.length) return `result rows with undeclared names: ${stray.map((t) => t.name).join('; ')}`
     const expected = p.tests.filter((t) => core.has(t.part)).length
     return r.tests.length === expected ? null : `expected ${expected} test results, got ${r.tests.length}`
   })

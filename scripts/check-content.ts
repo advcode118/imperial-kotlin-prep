@@ -79,6 +79,7 @@ for (const { id: w, content: c } of weeks) {
           for (const t of q.tests) {
             if (!nonEmpty(t.name) || !nonEmpty(t.actual) || !nonEmpty(t.expected)) bad(`${here}: incomplete test case`)
             if (/[\t\n]/.test(t.name)) bad(`${here}: test name contains a tab or newline`)
+            if (/\.[A-Za-z]{1,5}$/.test(t.name)) bad(`${here}: test name "${t.name}" reads like a file name; describe the case instead`)
           }
         }
         break

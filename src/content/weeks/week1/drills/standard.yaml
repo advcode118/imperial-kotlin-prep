@@ -8,7 +8,7 @@
   solution: |
     fun extension(file: String): String = file.substringAfterLast(".", "")
   tests:
-    - { name: "Main.kt", actual: 'extension("Main.kt")', expected: '"kt"' }
+    - { name: "one dot", actual: 'extension("Main.kt")', expected: '"kt"' }
     - { name: "two dots", actual: 'extension("backup.tar.gz")', expected: '"gz"' }
     - { name: "no dot", actual: 'extension("Makefile")', expected: '""' }
   explanation: "The second argument of `substringAfterLast` is what to return when the delimiter is missing. Without it you would get the whole file name back."
