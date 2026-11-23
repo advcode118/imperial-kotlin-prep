@@ -192,6 +192,48 @@ test.describe('pre-PPT', () => {
     await expect(page.getByRole('button', { name: /^Run 3 tests/ })).toBeVisible()
   })
 
+  // Every part tab must be fully inside the tab row: none clipped, none hidden behind a scroll.
+  for (const [width, height, split] of [
+    [1440, 900, null],
+    [1280, 800, null],
+    [1440, 900, 25],
+    [1280, 800, 25],
+    [1024, 768, 25],
+    [390, 844, null],
+  ] as [number, number, number | null][]) {
+    for (const focus of [false, true]) {
+      test(`part tabs fit at ${width}px${split ? `, divider at ${split}%` : ''}${focus ? ', focus mode' : ''}`, async ({ page }) => {
+        await page.setViewportSize({ width, height })
+        await page.addInitScript(
+          ([split, focus]) => {
+            if (split) localStorage.setItem('ikp:ui:split:preppt', String(split))
+            if (focus) localStorage.setItem('ikp:ui:focus', 'true')
+          },
+          [split, focus] as const,
+        )
+        await page.goto('#/week/week1/pre-ppt')
+        const row = page.getByRole('tablist', { name: 'Specification' })
+        await expect(row.getByRole('tab')).toHaveCount(7)
+        await expect(row.getByRole('tab', { name: 'Assessment' })).toBeVisible()
+        const { box, tabs, scrollWidth, clientWidth } = await row.evaluate((el) => ({
+          box: el.getBoundingClientRect().toJSON(),
+          tabs: [...el.querySelectorAll('[role=tab]')].map((t) => t.getBoundingClientRect().toJSON()),
+          scrollWidth: el.scrollWidth,
+          clientWidth: el.clientWidth,
+        }))
+        expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+        for (const t of tabs) {
+          expect(t.left).toBeGreaterThanOrEqual(box.left - 0.5)
+          expect(t.right).toBeLessThanOrEqual(box.right + 0.5)
+          expect(t.bottom).toBeLessThanOrEqual(box.bottom + 0.5)
+        }
+        // The last tab works, wherever it wrapped to.
+        await row.getByRole('tab', { name: 'Assessment' }).click()
+        await expect(page.getByRole('heading', { level: 2, name: 'Assessing yourself' })).toBeVisible()
+      })
+    }
+  }
+
   test('focus mode hides the navigation, persists, and Esc leaves it after a confirm', async ({ page }) => {
     await page.goto('#/week/week1/pre-ppt')
     await page.getByRole('button', { name: 'Start timer' }).click()

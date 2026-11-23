@@ -1008,7 +1008,7 @@ input[type='radio'] {
 }
 .wv-panes {
   display: grid;
-  grid-template-columns: var(--split, 42%) 9px minmax(0, 1fr);
+  grid-template-columns: minmax(16rem, var(--split, 42%)) 9px minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }
@@ -1481,4 +1481,11 @@ body.dragging {
 /* In the list of all questions, editors start shorter; the one-at-a-time view is the place to work. */
 .page .question .editor-box {
   --editor-min: calc(7 * 1.6 * var(--code-size) + 1.5rem);
+}
+
+/* The spec's part tabs wrap onto a second line rather than clip or scroll, at any pane width. */
+.wv-instructions > .tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+  row-gap: 0;
 }
