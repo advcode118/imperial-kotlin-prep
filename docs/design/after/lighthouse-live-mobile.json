@@ -1,0 +1,47 @@
+{
+  "base": "https://advcode118.github.io/imperial-kotlin-prep/",
+  "preset": "mobile",
+  "runs": 3,
+  "rows": [
+    {
+      "route": "home",
+      "performance": 100,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 763,
+      "lcpMs": 763,
+      "tbtMs": 70,
+      "contrast": "pass"
+    },
+    {
+      "route": "lesson",
+      "performance": 98,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 802,
+      "lcpMs": 802,
+      "tbtMs": 177,
+      "contrast": "pass"
+    },
+    {
+      "route": "drills",
+      "performance": 91,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 768,
+      "lcpMs": 2186,
+      "tbtMs": 259,
+      "contrast": "pass"
+    },
+    {
+      "route": "pre-ppt",
+      "performance": 97,
+      "accessibility": 100,
+      "best-practices": 100,
+      "fcpMs": 794,
+      "lcpMs": 794,
+      "tbtMs": 196,
+      "contrast": "pass"
+    }
+  ]
+}

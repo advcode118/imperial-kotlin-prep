@@ -31,10 +31,10 @@ headless Chromium. Scores are performance / accessibility / best practices.
 
 | Page | Reported baseline | Before, measured | After, local build | After, live site |
 | --- | --- | --- | --- | --- |
-| Home | 82 / 95 / 100 | 95 / 95 / 100 | 100 / 100 / 100 | LIVE_D_HOME |
-| Lesson (Strings) | not given | 100 / 93 / 100 | 100 / 100 / 100 | LIVE_D_LESSON |
-| Drills / Standard | 82 / 91 / 100 | 100 / 91 / 100 | 100 / 100 / 100 | LIVE_D_DRILLS |
-| Pre-PPT | not given | 93 / 93 / 100 | 100 / 100 / 100 | LIVE_D_PREPPT |
+| Home | 82 / 95 / 100 | 95 / 95 / 100 | 100 / 100 / 100 | 100 / 100 / 100 |
+| Lesson (Strings) | not given | 100 / 93 / 100 | 100 / 100 / 100 | 100 / 100 / 100 |
+| Drills / Standard | 82 / 91 / 100 | 100 / 91 / 100 | 100 / 100 / 100 | 100 / 100 / 100 |
+| Pre-PPT | not given | 93 / 93 / 100 | 100 / 100 / 100 | 100 / 100 / 100 |
 
 "Reported baseline" is the figure supplied with the redesign brief. "Before,
 measured" is this script against the live site at `4901c65`; the same commit
@@ -53,6 +53,10 @@ bundle size shows.
 | Drills / Standard | 95 / 91 / 100 | 95 / 100 / 100 | 0.75s → 2.86s | 264ms → 121ms |
 | Pre-PPT | 84 / 93 / 100 | 98 / 100 / 100 | 0.75s → 0.75s | 238ms → 169ms |
 
+Against the live site after deploy, the mobile preset gave 100, 98, 91 and 97
+for performance (home, lesson, drills, pre-PPT), with accessibility and best
+practices at 100 on all four.
+
 The drill page's mobile LCP is later than before because its largest element
 is now the editor, which arrives in its own chunk; the score is unchanged at
 95 because blocking time halved.
@@ -65,7 +69,8 @@ Met on the desktop preset and on the mobile preset.
 `npm run check:lighthouse` enforces them locally (it builds nothing: run
 `npm run build` first; it starts its own preview server). In CI the same
 command runs after the gated checks as a reported, non-blocking step.
-Performance scores depend on how busy the runner is, so a hard gate would
+On the first CI run of the redesign it reported 100 / 100 / 100 on all four
+pages. Performance scores depend on how busy the runner is, so a hard gate would
 occasionally block an unrelated content fix; accessibility is gated
 deterministically by the axe tests instead.
 
